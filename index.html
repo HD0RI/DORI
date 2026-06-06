@@ -929,9 +929,16 @@ function attachProfileDrag() {
 
   function onMove(cx, cy) {
     if (!drag) return;
-    const sensitivity = 20;
-    profileState.x = Math.max(0, Math.min(100, drag.startPx - (cx - drag.startCx) / sensitivity));
-    profileState.y = Math.max(0, Math.min(100, drag.startPy - (cy - drag.startCy) / sensitivity));
+    const wrap = document.getElementById('prof-circle-wrap');
+    const img  = document.getElementById('img-profile');
+    const iw   = parseFloat(img.style.width)  || wrap.offsetWidth;
+    const ih   = parseFloat(img.style.height) || wrap.offsetHeight;
+    const exX  = Math.max(1, iw - wrap.offsetWidth);
+    const exY  = Math.max(1, ih - wrap.offsetHeight);
+    const dpx  = (cx - drag.startCx) / exX * 100;
+    const dpy  = (cy - drag.startCy) / exY * 100;
+    profileState.x = Math.max(0, Math.min(100, drag.startPx - dpx));
+    profileState.y = Math.max(0, Math.min(100, drag.startPy - dpy));
     applyProfileTransform();
   }
 
@@ -1342,6 +1349,11 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   const origW = cardEl.style.width;
   cardEl.style.width = cardEl.offsetWidth + 'px';
 
+  /* 스티커 UI 요소 숨기기 */
+  const stickerUISelectors = '.sticker-handle,.sticker-del,.sticker-rot';
+  const stickerUIEls = cardEl.querySelectorAll(stickerUISelectors);
+  stickerUIEls.forEach(el => { el.dataset.hiddenForExport = '1'; el.style.display = 'none'; });
+
   try {
     const result = await html2canvas(cardEl, {
       scale: 2,
@@ -1358,6 +1370,8 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   } catch(e) {
     alert('저장에 실패했습니다. 다시 시도해주세요.'); console.error(e);
   } finally {
+    /* 스티커 UI 복원 */
+    stickerUIEls.forEach(el => { el.style.display = ''; delete el.dataset.hiddenForExport; });
     replacements.forEach(({ img, div }) => {
       img.style.display = '';
       div.remove();
@@ -1657,17 +1671,20 @@ function attachStickerResize(el) {
   let resize = null;
   handle.addEventListener('mousedown', e => {
     e.stopPropagation();
-    resize = { startCx: e.clientX, startCy: e.clientY, startW: el.offsetWidth, startH: el.offsetHeight };
+    /* 원본 비율 기억 */
+    resize = {
+      startCx: e.clientX, startCy: e.clientY,
+      startW: el.offsetWidth, startH: el.offsetHeight,
+      ratio: el.offsetHeight / el.offsetWidth
+    };
   });
   document.addEventListener('mousemove', e => {
     if (!resize) return;
-    const dw = e.clientX - resize.startCx;
-    const dh = e.clientY - resize.startCy;
-    const d = (dw + dh) / 2;
+    const d = ((e.clientX - resize.startCx) + (e.clientY - resize.startCy)) / 2;
     const nw = Math.max(20, resize.startW + d);
-    const nh = Math.max(20, resize.startH + d);
+    /* 비율 고정: 높이는 너비 × 원본비율 */
     el.style.width  = nw + 'px';
-    el.style.height = nh + 'px';
+    el.style.height = (nw * resize.ratio) + 'px';
   });
   document.addEventListener('mouseup', () => { resize = null; });
 }
