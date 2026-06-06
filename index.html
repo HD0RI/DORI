@@ -141,7 +141,9 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
   position:relative;overflow:hidden;flex-shrink:0;
 }
 .card-banner img{
-  position:absolute;inset:0;width:100%;height:100%;
+  position:absolute;
+  width:100%;height:100%;
+  left:0;top:0;
   object-fit:cover;object-position:50% 50%;
   display:block;
   cursor:grab;
@@ -758,7 +760,7 @@ function renderCardSlots() {
       <div class="card-img-slot" style="height:${h}px" data-slot-id="${slot.id}">
         ${slot.src
           ? `<img src="${slot.src}" alt="${slot.label}"
-               style="object-position:${slot.imgPos.x}% ${slot.imgPos.y}%;transform:scale(${slot.scale});transform-origin:${slot.imgPos.x}% ${slot.imgPos.y}%"
+               style="object-position:${slot.imgPos.x}% ${slot.imgPos.y}%;width:${(slot.scale||1)*100}%;height:${(slot.scale||1)*100}%;position:absolute;left:-${((slot.scale||1)*100-100)/2}%;top:-${((slot.scale||1)*100-100)/2}%"
                draggable="false"/>`
           : `<div class="card-img-slot-ph">${slot.label || '이미지를 업로드하세요'}</div>`}
         ${slot.src ? '<div class="drag-hint">드래그로 위치 · 휠로 확대/축소</div>' : ''}
@@ -803,9 +805,17 @@ const bannerState = { x: 50, y: 50, scale: 1.0 };
 function applyBannerTransform() {
   const img = document.getElementById('img-banner');
   if (!img || img.classList.contains('hidden')) return;
+  const s = bannerState.scale;
+  /* scale > 1이면 이미지를 확대하고 음수 margin으로 넘침 처리 */
+  const pct = s * 100;
+  const offset = (pct - 100) / 2;
+  img.style.width  = pct + '%';
+  img.style.height = pct + '%';
+  img.style.position = 'absolute';
+  img.style.left = `-${offset}%`;
+  img.style.top  = `-${offset}%`;
+  img.style.transform = 'none';
   img.style.objectPosition = `${bannerState.x}% ${bannerState.y}%`;
-  img.style.transform = `scale(${bannerState.scale})`;
-  img.style.transformOrigin = `${bannerState.x}% ${bannerState.y}%`;
 }
 
 function attachBannerDrag() {
@@ -878,9 +888,16 @@ const profileState = { x: 50, y: 50, scale: 1.0 };
 function applyProfileTransform() {
   const img = document.getElementById('img-profile');
   if (!img || img.classList.contains('hidden')) return;
+  const s = profileState.scale;
+  const pct = s * 100;
+  const offset = (pct - 100) / 2;
+  img.style.width  = pct + '%';
+  img.style.height = pct + '%';
+  img.style.position = 'absolute';
+  img.style.left = `-${offset}%`;
+  img.style.top  = `-${offset}%`;
+  img.style.transform = 'none';
   img.style.objectPosition = `${profileState.x}% ${profileState.y}%`;
-  img.style.transform = `scale(${profileState.scale})`;
-  img.style.transformOrigin = `${profileState.x}% ${profileState.y}%`;
 }
 
 function attachProfileDrag() {
@@ -1248,18 +1265,19 @@ function renderImgToCanvas(img, wrapW, wrapH) {
   const ctx = c.getContext('2d');
   ctx.scale(DPR, DPR);
 
-  const scaleMatch = (img.style.transform || '').match(/scale\(([^)]+)\)/);
-  const userScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
+  /* width/height % 방식으로 저장된 scale 읽기 */
+  const wPct = parseFloat(img.style.width) || 100;
+  const userScale = wPct / 100;
 
   const posParts = (img.style.objectPosition || '50% 50%').split(' ');
   const px = parseFloat(posParts[0]) / 100;
-  const py = parseFloat(posParts[1] || posParts[0]) / 100;
+  const py = parseFloat(posParts[1] !== undefined ? posParts[1] : posParts[0]) / 100;
 
   const nw = img.naturalWidth;
   const nh = img.naturalHeight;
   if (!nw || !nh) return null;
 
-  /* cover: 슬롯을 꽉 채우는 최소 배율 × 사용자 확대값 */
+  /* cover 기준으로 scale 적용 */
   const base = Math.max(wrapW / nw, wrapH / nh);
   const ratio = base * userScale;
   const dw = nw * ratio;
@@ -1402,9 +1420,16 @@ function attachImgDrag() {
       return slots.find(s => String(s.id) === String(sid));
     }
     function applyTransform(slot, img) {
+      const s = slot.scale || 1;
+      const pct = s * 100;
+      const offset = (pct - 100) / 2;
+      img.style.width  = pct + '%';
+      img.style.height = pct + '%';
+      img.style.position = 'absolute';
+      img.style.left = `-${offset}%`;
+      img.style.top  = `-${offset}%`;
+      img.style.transform = 'none';
       img.style.objectPosition = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
-      img.style.transform = `scale(${slot.scale})`;
-      img.style.transformOrigin = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
     }
 
     /* ── 마우스 드래그 ── */
