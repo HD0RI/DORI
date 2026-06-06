@@ -784,6 +784,218 @@ function attachBannerDrag() {
 /* ── 스티커 회전 ── */
 
 
+
+/* ════════ 텍스트 바인딩 ════════ */
+[
+  ['in-nick','disp-nick','닉네임'],
+  ['in-free','disp-free',''],
+].forEach(([iid,did,fb])=>{
+  const i=document.getElementById(iid), d=document.getElementById(did);
+  if(!i||!d) return;
+  i.addEventListener('input', () => { d.textContent = i.value.trim() || (fb||''); });
+});
+
+/* ════════ 헤더 메타 ════════ */
+let metaColor = '#666666';
+function renderHeaderMeta() {
+  const el = document.getElementById('disp-header-meta');
+  const val = document.getElementById('in-header-meta') ? document.getElementById('in-header-meta').value : '';
+  el.innerHTML = '';
+  val.split('\n').map(l=>l.trim()).filter(Boolean).forEach(l => {
+    const d = document.createElement('div');
+    d.className = 'header-meta-line';
+    d.style.color = metaColor;
+    d.textContent = l;
+    el.appendChild(d);
+  });
+}
+const inHeaderMeta = document.getElementById('in-header-meta');
+if (inHeaderMeta) inHeaderMeta.addEventListener('input', renderHeaderMeta);
+const metaPicker = document.getElementById('meta-color-picker');
+if (metaPicker) metaPicker.addEventListener('input', function() { metaColor = this.value; renderHeaderMeta(); });
+
+/* ════════ 태그 시스템 ════════ */
+let tagIdSeq = 0;
+const tags = [];
+function createTag(text='', color='#6c85c2', textColor='#444444') {
+  return { id: ++tagIdSeq, text, color, textColor };
+}
+function renderTagBuilder() {
+  const list = document.getElementById('tag-builder-list');
+  if (!list) return;
+  list.innerHTML = '';
+  tags.forEach(tag => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 8px;background:#f7f6f3;border-radius:8px;border:1px solid var(--bdr)';
+    row.innerHTML = `
+      <input type="color" value="${tag.color}" style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:50%;flex-shrink:0" title="점 색상"/>
+      <input type="text" value="${tag.text}" placeholder="태그 텍스트" style="flex:1;border:none;background:transparent;font-size:13px;font-family:inherit;color:var(--txt);outline:none;min-width:0" maxlength="20"/>
+      <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);flex-shrink:0">글<input type="color" value="${tag.textColor||'#444444'}" style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:3px" title="글자 색상"/></label>
+      <button title="삭제" style="background:none;border:none;cursor:pointer;color:#bbb;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>
+    `;
+    const colorInp    = row.querySelectorAll('input[type=color]')[0];
+    const textColorInp= row.querySelectorAll('input[type=color]')[1];
+    const textInp     = row.querySelector('input[type=text]');
+    const delBtn      = row.querySelector('button');
+    colorInp.addEventListener('input',     e => { tag.color     = e.target.value; renderCardTags(); });
+    textColorInp.addEventListener('input', e => { tag.textColor = e.target.value; renderCardTags(); });
+    textInp.addEventListener('input',      e => { tag.text      = e.target.value; renderCardTags(); });
+    delBtn.addEventListener('click', () => { tags.splice(tags.findIndex(t=>t.id===tag.id),1); renderTagBuilder(); });
+    list.appendChild(row);
+  });
+  renderCardTags();
+}
+function renderCardTags() {
+  const row = document.getElementById('card-tag-row');
+  if (!row) return;
+  row.innerHTML = '';
+  if (!tags.length) {
+    row.innerHTML = '<span style="font-size:11px;color:#bbb">태그를 추가해보세요</span>';
+    return;
+  }
+  tags.forEach(tag => {
+    if (!tag.text.trim()) return;
+    const el = document.createElement('span');
+    el.className = 'card-tag';
+    el.style.color = tag.textColor || '#444444';
+    el.innerHTML = `<span class="card-tag-dot" style="background:${tag.color}"></span><span class="card-tag-text">${tag.text}</span>`;
+    row.appendChild(el);
+  });
+}
+const btnAddTag = document.getElementById('btn-add-tag');
+if (btnAddTag) btnAddTag.addEventListener('click', () => {
+  const colors = ['#6c85c2','#c4527a','#3a8a6e','#a06840','#7a5a9a','#3a8aaa'];
+  tags.push(createTag('', colors[tags.length % colors.length]));
+  renderTagBuilder();
+});
+
+/* ════════ 닉네임 스타일 & 색상 & 폰트 ════════ */
+let currentNickStyle = 'filled';
+let currentNickColor = '#6c85c2';
+let currentNickFont  = 'serif';
+
+function applyNickStyle() {
+  const el = document.getElementById('disp-nick');
+  if (!el) return;
+  el.className = 'nick-pill nick-style-' + currentNickStyle;
+  el.style.setProperty('--nick-color', currentNickColor);
+  if (currentNickStyle === 'filled') el.style.setProperty('--nick-text-color', '#fff');
+  el.style.fontFamily = currentNickFont === 'serif'
+    ? "'Noto Serif KR', serif"
+    : "'Noto Sans KR', sans-serif";
+}
+document.querySelectorAll('.nick-style-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nick-style-btn').forEach(b => {
+      b.style.background = 'transparent'; b.style.borderColor = 'var(--bdr)'; b.style.color = 'var(--txt2)';
+    });
+    btn.style.background = 'var(--acc)'; btn.style.borderColor = 'var(--acc)'; btn.style.color = '#fff';
+    currentNickStyle = btn.dataset.style;
+    applyNickStyle();
+  });
+});
+const nickPicker = document.getElementById('nick-color-picker');
+if (nickPicker) nickPicker.addEventListener('input', function() { currentNickColor = this.value; applyNickStyle(); });
+document.querySelectorAll('.nick-font-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nick-font-btn').forEach(b => {
+      b.style.background = 'transparent'; b.style.borderColor = 'var(--bdr)'; b.style.color = 'var(--txt2)';
+    });
+    btn.style.background = 'var(--acc)'; btn.style.borderColor = 'var(--acc)'; btn.style.color = '#fff';
+    currentNickFont = btn.dataset.font;
+    applyNickStyle();
+  });
+});
+
+/* ════════ 테마 ════════ */
+const themePresets = {
+  default: { cardBg:'#eef0f8', headerBg:'#dde0f0', nickBg:'#6c85c2', sep:'#c8ccd8', txt:'#1a1a1a', txt2:'#666666' },
+  pink:    { cardBg:'#f5eef2', headerBg:'#ead8e5', nickBg:'#c4527a', sep:'#d8b8ca', txt:'#1a1a1a', txt2:'#666666' },
+  mint:    { cardBg:'#eef5f2', headerBg:'#d5eae3', nickBg:'#3a8a6e', sep:'#b0d5c5', txt:'#1a1a1a', txt2:'#666666' },
+  warm:    { cardBg:'#f5f0ea', headerBg:'#e8ddd0', nickBg:'#a06840', sep:'#d0b898', txt:'#1a1a1a', txt2:'#666666' },
+  dark:    { cardBg:'#2a2d36', headerBg:'#1e2028', nickBg:'#4a5570', sep:'#3a3f50', txt:'#e8e8e8', txt2:'#aaaaaa' },
+  custom:  null,
+};
+function applyCardColors(colors) {
+  const card = document.getElementById('card-canvas');
+  card.style.setProperty('--card-bg',   colors.cardBg);
+  card.style.setProperty('--header-bg', colors.headerBg);
+  card.style.setProperty('--nick-bg',   colors.nickBg);
+  card.style.setProperty('--sep',       colors.sep);
+  card.style.setProperty('--txt',       colors.txt);
+  card.style.setProperty('--txt2',      colors.txt2);
+  ['cc-card-bg','cc-header-bg','cc-nick-bg','cc-sep','cc-txt','cc-txt2'].forEach((id,i) => {
+    const el = document.getElementById(id);
+    const vals = [colors.cardBg, colors.headerBg, colors.nickBg, colors.sep, colors.txt, colors.txt2];
+    const vEl = document.getElementById(id+'-val');
+    if (el) el.value = vals[i];
+    if (vEl) vEl.textContent = vals[i];
+  });
+  const pc = document.querySelector('.prof-circle');
+  if (pc) pc.style.borderColor = colors.cardBg;
+  applyNickStyle();
+}
+document.querySelectorAll('.theme-swatch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+    const theme = sw.dataset.theme;
+    document.body.dataset.theme = (theme === 'custom') ? '' : theme;
+    if (theme !== 'custom' && themePresets[theme]) applyCardColors(themePresets[theme]);
+  });
+});
+const ccMap = [
+  ['cc-card-bg','--card-bg','cc-card-bg-val'],['cc-header-bg','--header-bg','cc-header-bg-val'],
+  ['cc-nick-bg','--nick-bg','cc-nick-bg-val'],['cc-sep','--sep','cc-sep-val'],
+  ['cc-txt','--txt','cc-txt-val'],['cc-txt2','--txt2','cc-txt2-val'],
+];
+ccMap.forEach(([pickerId, cssVar, valId]) => {
+  const picker = document.getElementById(pickerId);
+  const valEl  = document.getElementById(valId);
+  if (!picker) return;
+  picker.addEventListener('input', () => {
+    const v = picker.value;
+    if (valEl) valEl.textContent = v;
+    document.getElementById('card-canvas').style.setProperty(cssVar, v);
+    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+    const cSw = document.querySelector('[data-theme=custom]');
+    if (cSw) cSw.classList.add('active');
+    document.body.dataset.theme = '';
+    if (cssVar === '--nick-bg') applyNickStyle();
+    if (cssVar === '--card-bg') { const pc = document.querySelector('.prof-circle'); if(pc) pc.style.borderColor = v; }
+  });
+});
+
+/* ════════ 디자인: 슬라이더/비율 ════════ */
+const rangeH = document.getElementById('range-banner-h');
+const rangeHVal = document.getElementById('range-banner-h-val');
+if (rangeH) rangeH.addEventListener('input', () => {
+  const v = rangeH.value;
+  if (rangeHVal) rangeHVal.textContent = v + 'px';
+  document.querySelector('.card-banner').style.height = v + 'px';
+});
+const rangeW = document.getElementById('range-imgwidth');
+const rangeWVal = document.getElementById('range-imgwidth-val');
+if (rangeW) rangeW.addEventListener('input', () => {
+  const v = rangeW.value;
+  if (rangeWVal) rangeWVal.textContent = v + 'px';
+  document.getElementById('card-right').style.width = v + 'px';
+});
+let currentRatio = 75;
+const ratioBtns = document.querySelectorAll('.ratio-btn');
+ratioBtns.forEach(btn => {
+  btn.style.cssText = 'padding:5px 12px;border-radius:6px;border:1px solid var(--bdr);background:#f5f4f1;font-size:12px;font-family:inherit;cursor:pointer;transition:.15s';
+  btn.addEventListener('click', () => {
+    ratioBtns.forEach(b => { b.style.background='#f5f4f1'; b.style.borderColor='var(--bdr)'; b.style.color=''; });
+    btn.style.background='var(--acc)'; btn.style.borderColor='var(--acc)'; btn.style.color='#fff';
+    currentRatio = parseInt(btn.dataset.ratio);
+    renderCardSlots();
+  });
+});
+
+/* ════════ 초기화 ════════ */
+document.getElementById('btn-reset').addEventListener('click', () => { if(confirm('모든 내용을 초기화할까요?')) location.reload(); });
+
 /* ════════ 초기 렌더 ════════ */
 renderEditorSlots();
 renderFreeBuilder();
