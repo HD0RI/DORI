@@ -211,7 +211,7 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
 /* filled: 채워진 사각형 (기본) */
 .nick-pill{
   display:inline-block;
-  font-size:20px;font-weight:700;font-family:var(--serif);
+  font-size:20px;font-weight:700;font-family:var(--nick-font, var(--serif));
   padding:5px 22px;border-radius:7px;margin-bottom:4px;
   line-height:1.3;
 }
@@ -442,11 +442,19 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
             <button class="nick-style-btn" data-style="plain"
               style="flex:1;padding:6px 4px;border-radius:6px;border:1.5px solid var(--bdr);background:transparent;color:var(--txt2);font-size:12px;font-family:inherit;cursor:pointer;transition:.15s">가 텍스트만</button>
           </div>
-          <label style="font-size:12px;color:var(--txt2);display:flex;align-items:center;gap:8px">
-            색상
-            <input type="color" id="nick-color-picker" value="#6c85c2"
-              style="width:30px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:4px"/>
-          </label>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <label style="font-size:12px;color:var(--txt2);display:flex;align-items:center;gap:8px">
+              색상
+              <input type="color" id="nick-color-picker" value="#6c85c2"
+                style="width:30px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:4px"/>
+            </label>
+          </div>
+          <div style="display:flex;gap:5px">
+            <button class="nick-font-btn active" data-font="serif"
+              style="flex:1;padding:5px 4px;border-radius:6px;border:1.5px solid var(--acc);background:var(--acc);color:#fff;font-size:13px;cursor:pointer;transition:.15s;font-family:'Noto Serif KR',serif">명조</button>
+            <button class="nick-font-btn" data-font="sans"
+              style="flex:1;padding:5px 4px;border-radius:6px;border:1.5px solid var(--bdr);background:transparent;color:var(--txt2);font-size:13px;cursor:pointer;transition:.15s;font-family:'Noto Sans KR',sans-serif">고딕</button>
+          </div>
         </div>
 
         <div class="form-group">
@@ -1360,9 +1368,10 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   }
 });
 
-/* ════════ 닉네임 스타일 & 색상 ════════ */
+/* ════════ 닉네임 스타일 & 색상 & 폰트 ════════ */
 let currentNickStyle = 'filled';
 let currentNickColor = '#6c85c2';
+let currentNickFont  = 'serif';
 
 function applyNickStyle() {
   const el = document.getElementById('disp-nick');
@@ -1371,6 +1380,10 @@ function applyNickStyle() {
   if (currentNickStyle === 'filled') {
     el.style.setProperty('--nick-text-color', '#fff');
   }
+  /* 폰트 적용 */
+  el.style.fontFamily = currentNickFont === 'serif'
+    ? "'Noto Serif KR', serif"
+    : "'Noto Sans KR', sans-serif";
 }
 
 document.querySelectorAll('.nick-style-btn').forEach(btn => {
@@ -1391,6 +1404,22 @@ document.querySelectorAll('.nick-style-btn').forEach(btn => {
 document.getElementById('nick-color-picker').addEventListener('input', function() {
   currentNickColor = this.value;
   applyNickStyle();
+});
+
+/* 폰트 버튼 */
+document.querySelectorAll('.nick-font-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nick-font-btn').forEach(b => {
+      b.style.background = 'transparent';
+      b.style.borderColor = 'var(--bdr)';
+      b.style.color = 'var(--txt2)';
+    });
+    btn.style.background = 'var(--acc)';
+    btn.style.borderColor = 'var(--acc)';
+    btn.style.color = '#fff';
+    currentNickFont = btn.dataset.font;
+    applyNickStyle();
+  });
 });
 
 /* ════════ 이미지 드래그 & 휠 줌 ════════ */
@@ -1445,35 +1474,35 @@ function attachImgDrag() {
   });
 }
 
-document.addEventListener('mousemove', e => {
+function moveImgDrag(clientX, clientY) {
   if (!imgDrag) return;
   const { img, slot, startX, startY, startPx, startPy } = imgDrag;
   const wrap = img.closest('.card-img-slot');
-  const sensitivity = 30; /* 낮을수록 민감 */
-  const dx = (e.clientX - startX) / sensitivity;
-  const dy = (e.clientY - startY) / sensitivity;
-  slot.imgPos.x = Math.max(0, Math.min(100, startPx - dx));
-  slot.imgPos.y = Math.max(0, Math.min(100, startPy - dy));
-  img.style.objectPosition = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
-  img.style.transformOrigin = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
-});
+  if (!wrap) return;
 
+  /* 실제 이미지 픽셀 이동량 → % 변환
+     이미지가 슬롯보다 넓은 만큼(초과분)을 기준으로 % 계산 */
+  const iw = parseFloat(img.style.width)  || wrap.offsetWidth;
+  const ih = parseFloat(img.style.height) || wrap.offsetHeight;
+  const excessX = Math.max(1, iw - wrap.offsetWidth);
+  const excessY = Math.max(1, ih - wrap.offsetHeight);
+
+  /* 마우스 이동 px → 이미지 위치 % 변환 (드래그 방향 = 이미지 이동 방향) */
+  const dpx = (clientX - startX) / excessX * 100;
+  const dpy = (clientY - startY) / excessY * 100;
+
+  slot.imgPos.x = Math.max(0, Math.min(100, startPx - dpx));
+  slot.imgPos.y = Math.max(0, Math.min(100, startPy - dpy));
+  applyCover(img, wrap.offsetWidth, wrap.offsetHeight, slot.imgPos.x, slot.imgPos.y, slot.scale || 1);
+}
+
+document.addEventListener('mousemove', e => { moveImgDrag(e.clientX, e.clientY); });
 document.addEventListener('mouseup', () => {
   if (imgDrag) { imgDrag.img.classList.remove('dragging'); imgDrag = null; }
 });
-
 document.addEventListener('touchmove', e => {
-  if (!imgDrag) return;
-  const { img, slot, startX, startY, startPx, startPy } = imgDrag;
-  const sensitivity = 30;
-  const dx = (e.touches[0].clientX - startX) / sensitivity;
-  const dy = (e.touches[0].clientY - startY) / sensitivity;
-  slot.imgPos.x = Math.max(0, Math.min(100, startPx - dx));
-  slot.imgPos.y = Math.max(0, Math.min(100, startPy - dy));
-  img.style.objectPosition = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
-  img.style.transformOrigin = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
+  if (imgDrag) moveImgDrag(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: true });
-
 document.addEventListener('touchend', () => { imgDrag = null; });
 
 /* ════════════════════════════════
