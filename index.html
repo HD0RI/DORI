@@ -1240,14 +1240,79 @@ ratioBtns.forEach(btn => {
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('모든 내용을 초기화할까요?'))location.reload();});
 
 document.getElementById('btn-download').addEventListener('click', async () => {
-  if(window.innerWidth<=768) switchMobTab('preview');
-  const btn=document.getElementById('btn-download');
-  btn.textContent='저장 중...'; btn.disabled=true;
+  if (window.innerWidth <= 768) switchMobTab('preview');
+  const btn = document.getElementById('btn-download');
+  btn.textContent = '저장 중...'; btn.disabled = true;
+
+  const cardEl = document.getElementById('card-canvas');
+
+  /* ── 저장 전 처리: transform:scale 이미지를 background-image로 변환 ── */
+  const backups = [];
+
+  /* 1) 카드 내 모든 object-fit:cover 이미지 (배너, 슬롯, 프로필) */
+  cardEl.querySelectorAll('img').forEach(img => {
+    if (img.classList.contains('hidden')) return;
+    const wrap = img.parentElement;
+    const cs   = getComputedStyle(img);
+    const pos  = img.style.objectPosition || '50% 50%';
+    const scaleMatch = img.style.transform && img.style.transform.match(/scale\(([^)]+)\)/);
+    const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
+
+    /* background-image 방식으로 교체 */
+    const origHTML = wrap.innerHTML;
+    backups.push({ wrap, origHTML });
+
+    img.style.display = 'none'; /* 원본 img 숨김 */
+
+    const div = document.createElement('div');
+    div.dataset.exportHelper = '1';
+    div.style.cssText = [
+      'position:absolute;inset:0',
+      `background-image:url('${img.src}')`,
+      'background-repeat:no-repeat',
+      `background-size:${scale * 100}%`,
+      `background-position:${pos}`,
+      'pointer-events:none',
+    ].join(';');
+    wrap.appendChild(div);
+  });
+
+  /* 2) 카드 width 고정 (저장 시 늘어남 방지) */
+  const origWidth = cardEl.style.width;
+  cardEl.style.width = cardEl.offsetWidth + 'px';
+
+  /* 3) 스티커 선택 해제 (점선 테두리 숨김) */
+  if (activeStickerEl) activeStickerEl.classList.remove('selected');
+
   try {
-    const canvas=await html2canvas(document.getElementById('card-canvas'),{scale:2,useCORS:true,allowTaint:true,logging:false});
-    const a=document.createElement('a'); a.download='소개카드.png'; a.href=canvas.toDataURL('image/png'); a.click();
-  } catch(e){ alert('저장에 실패했습니다.'); console.error(e); }
-  finally{ btn.textContent='이미지 저장 ↓'; btn.disabled=false; }
+    const rendered = await html2canvas(cardEl, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      width:  cardEl.offsetWidth,
+      height: cardEl.offsetHeight,
+      windowWidth:  cardEl.offsetWidth,
+      windowHeight: cardEl.offsetHeight,
+    });
+    const a = document.createElement('a');
+    a.download = '소개카드.png';
+    a.href = rendered.toDataURL('image/png');
+    a.click();
+  } catch(e) {
+    alert('저장에 실패했습니다.'); console.error(e);
+  } finally {
+    /* ── 복원 ── */
+    backups.forEach(({ wrap, origHTML }) => {
+      /* export helper div 제거, 원본 img 복구 */
+      wrap.querySelectorAll('[data-export-helper]').forEach(d => d.remove());
+      const hiddenImg = wrap.querySelector('img[style*="display: none"]');
+      if (hiddenImg) hiddenImg.style.display = '';
+    });
+    cardEl.style.width = origWidth;
+    if (activeStickerEl) activeStickerEl.classList.add('selected');
+    btn.textContent = '이미지 저장 ↓'; btn.disabled = false;
+  }
 });
 
 /* ════════ 닉네임 스타일 & 색상 ════════ */
