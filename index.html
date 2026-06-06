@@ -1297,23 +1297,35 @@ document.getElementById('btn-download').addEventListener('click', async () => {
 
   const cardEl = document.getElementById('card-canvas');
 
-  /* 스티커 선택 해제 */
+  /* 스티커 선택 해제 + 정보 수집 */
   const wasSelected = activeStickerEl;
   if (activeStickerEl) activeStickerEl.classList.remove('selected');
-
-  /* 스티커 정보 수집 */
   const stickerData = [];
   document.getElementById('sticker-layer').querySelectorAll('.sticker').forEach(s => {
-    const si = s.querySelector('.sticker-img');
-    if (!si || !si.src) return;
+    const si2 = s.querySelector('.sticker-img');
+    if (!si2 || !si2.src) return;
     const m = (s.style.transform || '').match(/rotate\(([^)]+)deg\)/);
-    stickerData.push({
-      src:    si.src,
-      left:   parseFloat(s.style.left)   || 0,
-      top:    parseFloat(s.style.top)    || 0,
-      width:  parseFloat(s.style.width)  || 80,
-      height: parseFloat(s.style.height) || 80,
-      rot:    m ? parseFloat(m[1]) * Math.PI / 180 : 0,
+    stickerData.push({ src:si2.src,
+      left:parseFloat(s.style.left)||0, top:parseFloat(s.style.top)||0,
+      width:parseFloat(s.style.width)||80, height:parseFloat(s.style.height)||80,
+      rot: m ? parseFloat(m[1])*Math.PI/180 : 0 });
+  });
+
+  /* ── 원본 DOM에서 미리 크기/위치 정보 수집 (렌더된 상태) ── */
+  const imgInfos = new Map();
+  cardEl.querySelectorAll('img').forEach(img => {
+    if (img.classList.contains('hidden') || img.classList.contains('sticker-img')) return;
+    if (!img.naturalWidth) return;
+    const parent = img.parentElement;
+    imgInfos.set(img.id || img.src, {
+      iw: parseFloat(img.style.width)  || parent.offsetWidth,
+      ih: parseFloat(img.style.height) || parent.offsetHeight,
+      il: parseFloat(img.style.left)   || 0,
+      it: parseFloat(img.style.top)    || 0,
+      pw: parent.offsetWidth,
+      ph: parent.offsetHeight,
+      src: img.src,
+      id: img.id,
     });
   });
 
@@ -1322,91 +1334,76 @@ document.getElementById('btn-download').addEventListener('click', async () => {
     const cardW = cardEl.offsetWidth;
     const cardH = cardEl.offsetHeight;
 
-    /* onclone: html2canvas가 DOM을 복제한 후 호출 — 원본 DOM은 건드리지 않음 */
     const result = await html2canvas(cardEl, {
       scale: SCALE,
       useCORS: true,
       allowTaint: true,
       logging: false,
       imageTimeout: 0,
-      width:  cardW,
+      width: cardW,
       height: cardH,
-      onclone: (doc, cloneEl) => {
-        /* 복제된 카드에서만 수정 — 원본 미리보기 영향 없음 */
+      onclone: (doc, clone) => {
+        /* 스티커 레이어 + 힌트 제거 */
+        const sl = clone.querySelector('.sticker-layer'); if(sl) sl.remove();
+        clone.querySelectorAll('.drag-hint,.prof-drag-hint').forEach(e=>e.remove());
 
-        /* 1) 스티커 레이어 제거 */
-        const cl = cloneEl.querySelector('.sticker-layer');
-        if (cl) cl.remove();
-
-        /* 2) 드래그 힌트 제거 */
-        cloneEl.querySelectorAll('.drag-hint,.prof-drag-hint').forEach(e => e.remove());
-
-        /* 3) img의 position:absolute + left/top/width/height(px) →
-              object-fit:cover + object-position 으로 변환
-              (html2canvas는 object-fit을 지원하므로 정확히 렌더링됨) */
-        cloneEl.querySelectorAll('img').forEach(img => {
+        /* img 변환: 원본에서 수집한 px 정보로 background-image div 교체 */
+        clone.querySelectorAll('img').forEach(img => {
           if (img.classList.contains('hidden') || img.classList.contains('sticker-img')) return;
-          if (!img.naturalWidth) return;
+          const key = img.id || img.src;
+          const info = imgInfos.get(key);
+          if (!info || !info.src) return;
 
-          const iw  = parseFloat(img.style.width)  || 0;
-          const ih  = parseFloat(img.style.height) || 0;
-          const il  = parseFloat(img.style.left)   || 0;
-          const it  = parseFloat(img.style.top)    || 0;
-          const pw  = img.parentElement.offsetWidth  || iw;
-          const ph  = img.parentElement.offsetHeight || ih;
+          const { iw, ih, il, it, pw, ph } = info;
 
-          /* object-position %: il이 음수→이미지 왼쪽이 잘림 */
-          const opx = iw <= pw ? 0 : Math.round(il / (pw - iw) * 100);
-          const opy = ih <= ph ? 0 : Math.round(it / (ph - ih) * 100);
+          /* background-size: 이미지 실제 크기를 % 로 */
+          const bsw = pw > 0 ? (iw/pw*100).toFixed(3)+'%' : '100%';
+          const bsh = ph > 0 ? (ih/ph*100).toFixed(3)+'%' : '100%';
+          /* background-position: left/top px를 % 로 역산
+             bg-pos %공식: pos = offset / (container - bgSize) * 100
+             여기서 bgSize = iw(px), offset = il(px) */
+          const bpx = (iw <= pw || pw===0) ? '0%' : (il/(pw-iw)*100).toFixed(3)+'%';
+          const bpy = (ih <= ph || ph===0) ? '0%' : (it/(ph-ih)*100).toFixed(3)+'%';
 
-          img.style.cssText = [
-            'position:absolute',
-            'inset:0',
-            'width:100%',
-            'height:100%',
-            'object-fit:cover',
-            `object-position:${opx}% ${opy}%`,
-            'display:block',
-            'transform:none',
-          ].join(';');
+          const div = doc.createElement('div');
+          Object.assign(div.style, {
+            position:'absolute', inset:'0',
+            backgroundImage: `url("${info.src}")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: `${bsw} ${bsh}`,
+            backgroundPosition: `${bpx} ${bpy}`,
+          });
+          img.style.display = 'none';
+          img.parentElement.appendChild(div);
         });
       }
     });
 
-    /* 스티커를 result canvas 위에 합성 */
+    /* 스티커 합성 */
     const out = document.createElement('canvas');
-    out.width  = result.width;
-    out.height = result.height;
+    out.width = result.width; out.height = result.height;
     const ctx = out.getContext('2d');
     ctx.drawImage(result, 0, 0);
-
-    const sp = stickerData.map(s => new Promise(res => {
-      const ti = new Image();
-      ti.crossOrigin = 'anonymous';
+    await Promise.all(stickerData.map(s => new Promise(res => {
+      const ti = new Image(); ti.crossOrigin='anonymous';
       ti.onload = () => {
         ctx.save();
-        ctx.translate((s.left + s.width/2)*SCALE, (s.top + s.height/2)*SCALE);
+        ctx.translate((s.left+s.width/2)*SCALE,(s.top+s.height/2)*SCALE);
         ctx.rotate(s.rot);
-        ctx.drawImage(ti, -s.width/2*SCALE, -s.height/2*SCALE, s.width*SCALE, s.height*SCALE);
-        ctx.restore();
-        res();
+        ctx.drawImage(ti,-s.width/2*SCALE,-s.height/2*SCALE,s.width*SCALE,s.height*SCALE);
+        ctx.restore(); res();
       };
-      ti.onerror = res;
-      ti.src = s.src;
-    }));
-
-    await Promise.all(sp);
+      ti.onerror=res; ti.src=s.src;
+    })));
 
     const a = document.createElement('a');
-    a.download = '소개카드.png';
-    a.href = out.toDataURL('image/png');
-    a.click();
+    a.download='소개카드.png'; a.href=out.toDataURL('image/png'); a.click();
 
   } catch(e) {
     alert('저장에 실패했습니다. 다시 시도해주세요.'); console.error(e);
   } finally {
     if (wasSelected) wasSelected.classList.add('selected');
-    btn.textContent = '이미지 저장 ↓'; btn.disabled = false;
+    btn.textContent='이미지 저장 ↓'; btn.disabled=false;
   }
 });
 
