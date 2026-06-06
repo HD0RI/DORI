@@ -1280,15 +1280,24 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   const wasSelected = activeStickerEl;
   if (activeStickerEl) activeStickerEl.classList.remove('selected');
 
-  /* 저장 전: object-fit img → canvas-rendered img に差し替え */
+  /* 저장 전: object-fit img → canvas-rendered img 교체 */
   const swaps = [];
-  cardEl.querySelectorAll('img').forEach(img => {
-    if (img.classList.contains('hidden') || img.classList.contains('sticker-img')) return;
+
+  function swapImg(img) {
+    if (!img || img.classList.contains('hidden')) return;
     if (!img.naturalWidth) return;
 
-    const wrap = img.parentElement;
-    const wW = wrap.offsetWidth;
-    const wH = wrap.offsetHeight;
+    /* 배너는 card-banner 자체 크기 사용, 프로필은 prof-circle, 나머지는 부모 */
+    let wW, wH;
+    if (img.id === 'img-banner') {
+      const banner = document.getElementById('card-banner-wrap');
+      wW = banner.offsetWidth;
+      wH = banner.offsetHeight;
+    } else {
+      const wrap = img.parentElement;
+      wW = wrap.offsetWidth;
+      wH = wrap.offsetHeight;
+    }
     if (!wW || !wH) return;
 
     const c = renderImgToCanvas(img, wW, wH);
@@ -1296,19 +1305,28 @@ document.getElementById('btn-download').addEventListener('click', async () => {
 
     const fake = new Image();
     fake.src = c.toDataURL('image/png');
-    fake.style.cssText = `
-      position:absolute;
-      left:0;top:0;
-      width:${wW}px;height:${wH}px;
-      display:block;
-    `;
-    fake.dataset.isFake = '1';
+    fake.style.position   = 'absolute';
+    fake.style.left       = '0';
+    fake.style.top        = '0';
+    fake.style.width      = wW + 'px';
+    fake.style.height     = wH + 'px';
+    fake.style.display    = 'block';
+    fake.style.zIndex     = '1';
+    fake.dataset.isFake   = '1';
 
-    img.style.visibility = 'hidden';
-    wrap.style.position = wrap.style.position || 'relative';
-    wrap.appendChild(fake);
-    swaps.push({ img, fake, wrap });
-  });
+    img.style.visibility  = 'hidden';
+    const container = img.parentElement;
+    if (getComputedStyle(container).position === 'static') {
+      container.style.position = 'relative';
+    }
+    container.appendChild(fake);
+    swaps.push({ img, fake, container });
+  }
+
+  /* 배너, 프로필, 슬롯 이미지 순서대로 처리 */
+  swapImg(document.getElementById('img-banner'));
+  swapImg(document.getElementById('img-profile'));
+  cardEl.querySelectorAll('.card-img-slot img, .card-img-slot-img').forEach(swapImg);
 
   const origW = cardEl.style.width;
   cardEl.style.width = cardEl.offsetWidth + 'px';
@@ -1333,6 +1351,7 @@ document.getElementById('btn-download').addEventListener('click', async () => {
       img.style.visibility = '';
       fake.remove();
     });
+    /* position:relative 임시 추가했던 것 복원은 불필요 — 원래도 relative였으므로 */
     cardEl.style.width = origW;
     if (wasSelected) wasSelected.classList.add('selected');
     btn.textContent = '이미지 저장 ↓'; btn.disabled = false;
