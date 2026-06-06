@@ -430,6 +430,9 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
         <div class="img-slot-list" id="slot-list"></div>
         <button class="add-slot-btn" id="btn-add-slot">＋ 이미지 칸 추가</button>
       </div>
+
+    </div>
+
     <!-- ── 탭 3: 디자인 ── -->
     <div class="tab-pane" id="pane-design">
       <div class="panel-sec">
@@ -556,6 +559,7 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
             </div>
           </div>
         </div>
+
 
         <div class="card-body">
           <div class="card-left">
@@ -764,42 +768,137 @@ function attachBannerDrag() {
   document.addEventListener('touchend', () => { drag = null; });
 }
 
+(function(){
+  const box = document.getElementById('up-banner');
+  const inp = box.querySelector('input');
+  function handle(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const r = new FileReader();
+    r.onload = e => {
+      const src = e.target.result;
+      const imgEl = document.getElementById('img-banner');
+      imgEl.classList.remove('hidden');
+      document.getElementById('ph-banner').classList.add('hidden');
+      box.classList.add('has-img');
+      let th = box.querySelector('.prof-thumb');
+      if (!th) { th = document.createElement('img'); th.className='prof-thumb'; th.style.borderRadius='4px'; box.querySelector('.upload-hint-txt').style.display='none'; box.appendChild(th); }
+      th.src = src;
+      /* 이미지 로드 완료 후 cover 적용 */
+      imgEl.onload = () => { attachBannerDrag(); applyBannerTransform(); };
+      imgEl.src = src;
+      if (imgEl.complete && imgEl.naturalWidth) { attachBannerDrag(); applyBannerTransform(); }
+    };
+    r.readAsDataURL(file);
+  }
+  inp.addEventListener('change', e => handle(e.target.files[0]));
+  box.addEventListener('dragover', e => { e.preventDefault(); box.style.borderColor='var(--acc)'; });
+  box.addEventListener('dragleave', () => { box.style.borderColor=''; });
+  box.addEventListener('drop', e => { e.preventDefault(); box.style.borderColor=''; handle(e.dataTransfer.files[0]); });
+})();
 
+/* ════════ 프로필 이미지 ════════ */
+const profileState = { x: 50, y: 50, scale: 1.0 };
 
-/* 썸네일 목록 렌더 */
+function applyProfileTransform() {
+  const img = document.getElementById('img-profile');
+  if (!img || img.classList.contains('hidden') || !img.naturalWidth) return;
+  const wrap = document.getElementById('prof-circle-wrap');
+  applyCover(img, wrap.offsetWidth, wrap.offsetHeight, profileState.x, profileState.y, profileState.scale);
+}
 
+function attachProfileDrag() {
+  const img = document.getElementById('img-profile');
+  if (!img) return;
+  let drag = null;
 
-/* 카드에 스티커 배치 */
+  img.addEventListener('mousedown', e => {
+    e.preventDefault();
+    drag = { startX: e.clientX, startY: e.clientY, startPx: profileState.x, startPy: profileState.y };
+    img.classList.add('dragging');
+  });
 
+  img.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.08 : 0.08;
+    profileState.scale = Math.max(0.5, Math.min(5.0, profileState.scale + delta));
+    applyProfileTransform();
+  }, { passive: false });
 
+  img.addEventListener('touchstart', e => {
+    drag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startPx: profileState.x, startPy: profileState.y };
+  }, { passive: true });
 
+  function onMove(cx, cy) {
+    if (!drag) return;
+    const wrap = document.getElementById('prof-circle-wrap');
+    const img  = document.getElementById('img-profile');
+    const iw   = parseFloat(img.style.width)  || wrap.offsetWidth;
+    const ih   = parseFloat(img.style.height) || wrap.offsetHeight;
+    const exX  = Math.max(1, iw - wrap.offsetWidth);
+    const exY  = Math.max(1, ih - wrap.offsetHeight);
+    const dpx  = (cx - drag.startCx) / exX * 100;
+    const dpy  = (cy - drag.startCy) / exY * 100;
+    profileState.x = Math.max(0, Math.min(100, drag.startPx - dpx));
+    profileState.y = Math.max(0, Math.min(100, drag.startPy - dpy));
+    applyProfileTransform();
+  }
 
-/* 카드 외부 클릭 시 선택 해제 */
-/* ── 스티커 이동 드래그 ── */
+  // startCx/Cy 수정
+  img.addEventListener('mousedown', e => {
+    drag = { startCx: e.clientX, startCy: e.clientY, startPx: profileState.x, startPy: profileState.y };
+  });
+  img.addEventListener('touchstart', e => {
+    drag = { startCx: e.touches[0].clientX, startCy: e.touches[0].clientY, startPx: profileState.x, startPy: profileState.y };
+  }, { passive: true });
 
+  document.addEventListener('mousemove', e => { if (drag) onMove(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', () => { if (drag) { img.classList.remove('dragging'); drag = null; } });
+  document.addEventListener('touchmove', e => { if (drag) onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+  document.addEventListener('touchend', () => { drag = null; });
+}
 
-/* ── 스티커 리사이즈 ── */
-
-
-/* ── 스티커 회전 ── */
-
-
+(function(){
+  const box = document.getElementById('up-profile');
+  const inp = box.querySelector('input');
+  function handle(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const r = new FileReader();
+    r.onload = e => {
+      const src = e.target.result;
+      const img = document.getElementById('img-profile');
+      img.src = src;
+      img.classList.remove('hidden');
+      document.getElementById('ph-profile').classList.add('hidden');
+      box.classList.add('has-img');
+      let th = box.querySelector('.prof-thumb');
+      if (!th) { th = document.createElement('img'); th.className = 'prof-thumb'; box.querySelector('.upload-hint-txt').style.display='none'; box.appendChild(th); }
+      th.src = src;
+      attachProfileDrag();
+      applyProfileTransform();
+    };
+    r.readAsDataURL(file);
+  }
+  inp.addEventListener('change', e => handle(e.target.files[0]));
+  box.addEventListener('dragover', e => { e.preventDefault(); box.style.borderColor='var(--acc)'; });
+  box.addEventListener('dragleave', () => { box.style.borderColor=''; });
+  box.addEventListener('drop', e => { e.preventDefault(); box.style.borderColor=''; handle(e.dataTransfer.files[0]); });
+})();
 
 /* ════════ 텍스트 바인딩 ════════ */
 [
   ['in-nick','disp-nick','닉네임'],
-  ['in-free','disp-free',''],
+
 ].forEach(([iid,did,fb])=>{
   const i=document.getElementById(iid), d=document.getElementById(did);
   if(!i||!d) return;
   i.addEventListener('input', () => { d.textContent = i.value.trim() || (fb||''); });
 });
 
-/* ════════ 헤더 메타 ════════ */
 let metaColor = '#666666';
+
 function renderHeaderMeta() {
   const el = document.getElementById('disp-header-meta');
-  const val = document.getElementById('in-header-meta') ? document.getElementById('in-header-meta').value : '';
+  const val = document.getElementById('in-header-meta').value;
   el.innerHTML = '';
   val.split('\n').map(l=>l.trim()).filter(Boolean).forEach(l => {
     const d = document.createElement('div');
@@ -809,45 +908,60 @@ function renderHeaderMeta() {
     el.appendChild(d);
   });
 }
-const inHeaderMeta = document.getElementById('in-header-meta');
-if (inHeaderMeta) inHeaderMeta.addEventListener('input', renderHeaderMeta);
-const metaPicker = document.getElementById('meta-color-picker');
-if (metaPicker) metaPicker.addEventListener('input', function() { metaColor = this.value; renderHeaderMeta(); });
+
+document.getElementById('in-header-meta').addEventListener('input', renderHeaderMeta);
+document.getElementById('meta-color-picker').addEventListener('input', function() {
+  metaColor = this.value; renderHeaderMeta();
+});
 
 /* ════════ 태그 시스템 ════════ */
 let tagIdSeq = 0;
 const tags = [];
+
 function createTag(text='', color='#6c85c2', textColor='#444444') {
   return { id: ++tagIdSeq, text, color, textColor };
 }
+
 function renderTagBuilder() {
   const list = document.getElementById('tag-builder-list');
-  if (!list) return;
   list.innerHTML = '';
   tags.forEach(tag => {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 8px;background:#f7f6f3;border-radius:8px;border:1px solid var(--bdr)';
     row.innerHTML = `
-      <input type="color" value="${tag.color}" style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:50%;flex-shrink:0" title="점 색상"/>
-      <input type="text" value="${tag.text}" placeholder="태그 텍스트" style="flex:1;border:none;background:transparent;font-size:13px;font-family:inherit;color:var(--txt);outline:none;min-width:0" maxlength="20"/>
-      <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);flex-shrink:0">글<input type="color" value="${tag.textColor||'#444444'}" style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:3px" title="글자 색상"/></label>
-      <button title="삭제" style="background:none;border:none;cursor:pointer;color:#bbb;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>
+      <input type="color" value="${tag.color}"
+        style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:50%;flex-shrink:0"
+        title="점 색상"/>
+      <input type="text" value="${tag.text}" placeholder="태그 텍스트"
+        style="flex:1;border:none;background:transparent;font-size:13px;font-family:inherit;color:var(--txt);outline:none;min-width:0"
+        maxlength="20"/>
+      <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);flex-shrink:0">
+        글<input type="color" value="${tag.textColor||'#444444'}"
+          style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:3px"
+          title="글자 색상"/>
+      </label>
+      <button title="삭제"
+        style="background:none;border:none;cursor:pointer;color:#bbb;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>
     `;
     const colorInp    = row.querySelectorAll('input[type=color]')[0];
     const textColorInp= row.querySelectorAll('input[type=color]')[1];
     const textInp     = row.querySelector('input[type=text]');
     const delBtn      = row.querySelector('button');
+
     colorInp.addEventListener('input',     e => { tag.color     = e.target.value; renderCardTags(); });
     textColorInp.addEventListener('input', e => { tag.textColor = e.target.value; renderCardTags(); });
     textInp.addEventListener('input',      e => { tag.text      = e.target.value; renderCardTags(); });
-    delBtn.addEventListener('click', () => { tags.splice(tags.findIndex(t=>t.id===tag.id),1); renderTagBuilder(); });
+    delBtn.addEventListener('click', () => {
+      tags.splice(tags.findIndex(t => t.id === tag.id), 1);
+      renderTagBuilder();
+    });
     list.appendChild(row);
   });
   renderCardTags();
 }
+
 function renderCardTags() {
   const row = document.getElementById('card-tag-row');
-  if (!row) return;
   row.innerHTML = '';
   if (!tags.length) {
     row.innerHTML = '<span style="font-size:11px;color:#bbb">태그를 추가해보세요</span>';
@@ -862,11 +976,291 @@ function renderCardTags() {
     row.appendChild(el);
   });
 }
-const btnAddTag = document.getElementById('btn-add-tag');
-if (btnAddTag) btnAddTag.addEventListener('click', () => {
+
+document.getElementById('btn-add-tag').addEventListener('click', () => {
   const colors = ['#6c85c2','#c4527a','#3a8a6e','#a06840','#7a5a9a','#3a8aaa'];
   tags.push(createTag('', colors[tags.length % colors.length]));
   renderTagBuilder();
+});
+
+/* ════════ 자유 기입 섹션 시스템 ════════ */
+let freeIdSeq = 0;
+const freeSections = [];
+
+function createFreeSection(title='', body='', titleColor='#999999', bodyColor='#555555') {
+  return { id: ++freeIdSeq, title, body, titleColor, bodyColor };
+}
+
+function renderFreeBuilder() {
+  const list = document.getElementById('free-builder-list');
+  list.innerHTML = '';
+  freeSections.forEach((sec, idx) => {
+    const item = document.createElement('div');
+    item.style.cssText = 'border:1px solid var(--bdr);border-radius:8px;overflow:hidden;background:#fafaf8';
+    item.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;padding:7px 10px;background:#f5f4f0;border-bottom:1px solid var(--bdr)">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);background:#e8e7e2;border-radius:4px;padding:1px 7px;flex-shrink:0">${idx+1}</span>
+        <input type="text" value="${sec.title}" placeholder="제목"
+          style="flex:1;border:none;background:transparent;font-size:12px;font-family:inherit;color:var(--txt);outline:none;min-width:0"/>
+        <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--muted);flex-shrink:0">
+          제목<input type="color" value="${sec.titleColor||'#999999'}"
+            style="width:20px;height:18px;border:none;background:none;cursor:pointer;padding:0" title="제목 색상"/>
+        </label>
+        <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--muted);flex-shrink:0">
+          본문<input type="color" value="${sec.bodyColor||'#555555'}"
+            style="width:20px;height:18px;border:none;background:none;cursor:pointer;padding:0" title="본문 색상"/>
+        </label>
+        <button title="삭제"
+          style="background:none;border:none;cursor:pointer;color:#bbb;font-size:17px;line-height:1;padding:0 2px;flex-shrink:0;transition:color .15s"
+          onmouseover="this.style.color='#c0392b'" onmouseout="this.style.color='#bbb'">×</button>
+      </div>
+      <textarea rows="4" placeholder="내용을 자유롭게 작성해주세요"
+        style="width:100%;padding:10px 12px;border:none;background:transparent;font-size:13px;font-family:inherit;color:var(--txt);outline:none;resize:vertical;line-height:1.65">${sec.body}</textarea>
+    `;
+    const titleInp      = item.querySelector('input[type=text]');
+    const bodyTA        = item.querySelector('textarea');
+    const delBtn        = item.querySelector('button');
+    const titleColorInp = item.querySelectorAll('input[type=color]')[0];
+    const bodyColorInp  = item.querySelectorAll('input[type=color]')[1];
+
+    titleInp.addEventListener('input',      e => { sec.title      = e.target.value; renderCardFreeSections(); });
+    bodyTA.addEventListener('input',        e => { sec.body       = e.target.value; renderCardFreeSections(); });
+    titleColorInp.addEventListener('input', e => { sec.titleColor = e.target.value; renderCardFreeSections(); });
+    bodyColorInp.addEventListener('input',  e => { sec.bodyColor  = e.target.value; renderCardFreeSections(); });
+    delBtn.addEventListener('click', () => {
+      freeSections.splice(freeSections.findIndex(s => s.id === sec.id), 1);
+      renderFreeBuilder();
+    });
+    list.appendChild(item);
+  });
+  renderCardFreeSections();
+}
+
+function renderCardFreeSections() {
+  const container = document.getElementById('card-free-sections');
+  container.innerHTML = '';
+  freeSections.forEach(sec => {
+    const div = document.createElement('div');
+    div.className = 'free-section';
+    div.innerHTML = `
+      <div class="free-title" style="color:${sec.titleColor||'#999999'}">${sec.title || 'FREE'}</div>
+      <div class="free-box" style="color:${sec.bodyColor||'#555555'};white-space:pre-wrap">${sec.body || ''}</div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+document.getElementById('btn-add-free').addEventListener('click', () => {
+  freeSections.push(createFreeSection('FREE', ''));
+  renderFreeBuilder();
+});
+
+/* 기본 섹션 1개 */
+freeSections.push(createFreeSection('FREE', ''));
+
+/* ════════ 테마 프리셋 ════════ */
+// 각 테마의 기본 색상값
+const themePresets = {
+  default: { cardBg:'#eef0f8', headerBg:'#dde0f0', nickBg:'#6c85c2', sep:'#c8ccd8', txt:'#1a1a1a', txt2:'#666666' },
+  pink:    { cardBg:'#f5eef2', headerBg:'#ead8e5', nickBg:'#c4527a', sep:'#d8b8ca', txt:'#1a1a1a', txt2:'#666666' },
+  mint:    { cardBg:'#eef5f2', headerBg:'#d5eae3', nickBg:'#3a8a6e', sep:'#b0d5c5', txt:'#1a1a1a', txt2:'#666666' },
+  warm:    { cardBg:'#f5f0ea', headerBg:'#e8ddd0', nickBg:'#a06840', sep:'#d0b898', txt:'#1a1a1a', txt2:'#666666' },
+  dark:    { cardBg:'#2a2d36', headerBg:'#1e2028', nickBg:'#4a5570', sep:'#3a3f50', txt:'#e8e8e8', txt2:'#aaaaaa' },
+  custom:  null,
+};
+
+function applyCardColors(colors) {
+  const card = document.getElementById('card-canvas');
+  card.style.setProperty('--card-bg',    colors.cardBg);
+  card.style.setProperty('--header-bg',  colors.headerBg);
+  card.style.setProperty('--nick-bg',    colors.nickBg);
+  card.style.setProperty('--sep',        colors.sep);
+  card.style.setProperty('--txt',        colors.txt);
+  card.style.setProperty('--txt2',       colors.txt2);
+  // 피커값 업데이트
+  document.getElementById('cc-card-bg').value   = colors.cardBg;
+  document.getElementById('cc-header-bg').value  = colors.headerBg;
+  document.getElementById('cc-nick-bg').value    = colors.nickBg;
+  document.getElementById('cc-sep').value        = colors.sep;
+  document.getElementById('cc-txt').value        = colors.txt;
+  document.getElementById('cc-txt2').value       = colors.txt2;
+  document.getElementById('cc-card-bg-val').textContent   = colors.cardBg;
+  document.getElementById('cc-header-bg-val').textContent  = colors.headerBg;
+  document.getElementById('cc-nick-bg-val').textContent    = colors.nickBg;
+  document.getElementById('cc-sep-val').textContent        = colors.sep;
+  document.getElementById('cc-txt-val').textContent        = colors.txt;
+  document.getElementById('cc-txt2-val').textContent       = colors.txt2;
+  // 프로필 테두리도 card-bg에 맞춤
+  document.querySelector('.prof-circle').style.borderColor = colors.cardBg;
+  // nick-pill 색도 동기화
+  applyNickStyle();
+}
+
+document.querySelectorAll('.theme-swatch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+    const theme = sw.dataset.theme;
+    document.body.dataset.theme = (theme === 'custom') ? '' : theme;
+    if (theme !== 'custom' && themePresets[theme]) {
+      applyCardColors(themePresets[theme]);
+    }
+    // custom은 현재 피커값 유지
+  });
+});
+
+/* ════════ 커스텀 색상 피커 ════════ */
+const ccMap = [
+  ['cc-card-bg',   '--card-bg',   'cc-card-bg-val'],
+  ['cc-header-bg', '--header-bg', 'cc-header-bg-val'],
+  ['cc-nick-bg',   '--nick-bg',   'cc-nick-bg-val'],
+  ['cc-sep',       '--sep',       'cc-sep-val'],
+  ['cc-txt',       '--txt',       'cc-txt-val'],
+  ['cc-txt2',      '--txt2',      'cc-txt2-val'],
+];
+ccMap.forEach(([pickerId, cssVar, valId]) => {
+  const picker = document.getElementById(pickerId);
+  const valEl  = document.getElementById(valId);
+  picker.addEventListener('input', () => {
+    const v = picker.value;
+    valEl.textContent = v;
+    document.getElementById('card-canvas').style.setProperty(cssVar, v);
+    // custom 스와치 활성화
+    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+    document.querySelector('[data-theme=custom]').classList.add('active');
+    document.body.dataset.theme = '';
+    // nick-bg 바뀌면 pill 색도 동기화
+    if (cssVar === '--nick-bg') applyNickStyle();
+    // card-bg 바뀌면 프로필 테두리도 동기화
+    if (cssVar === '--card-bg') document.querySelector('.prof-circle').style.borderColor = v;
+  });
+});
+
+/* ════════ 디자인: 배너 높이 슬라이더 ════════ */
+const rangeH = document.getElementById('range-banner-h');
+const rangeHVal = document.getElementById('range-banner-h-val');
+rangeH.addEventListener('input', () => {
+  const v = rangeH.value;
+  rangeHVal.textContent = v + 'px';
+  document.querySelector('.card-banner').style.height = v + 'px';
+});
+
+/* ════════ 디자인: 이미지 너비 슬라이더 ════════ */
+const rangeW = document.getElementById('range-imgwidth');
+const rangeWVal = document.getElementById('range-imgwidth-val');
+rangeW.addEventListener('input', () => {
+  const v = rangeW.value;
+  rangeWVal.textContent = v + 'px';
+  document.getElementById('card-right').style.width = v + 'px';
+});
+
+/* ════════ 디자인: 이미지 비율 버튼 ════════ */
+const ratioBtns = document.querySelectorAll('.ratio-btn');
+ratioBtns.forEach(btn => {
+  btn.style.cssText='padding:5px 12px;border-radius:6px;border:1px solid var(--bdr);background:#f5f4f1;font-size:12px;font-family:inherit;cursor:pointer;transition:.15s';
+  btn.addEventListener('click', () => {
+    ratioBtns.forEach(b=>{ b.style.background='#f5f4f1'; b.style.borderColor='var(--bdr)'; b.style.color=''; });
+    btn.style.background='var(--acc)'; btn.style.borderColor='var(--acc)'; btn.style.color='#fff';
+    currentRatio = parseInt(btn.dataset.ratio);
+    renderCardSlots();
+  });
+});
+
+/* ════════ 초기화 & 저장 ════════ */
+document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('모든 내용을 초기화할까요?'))location.reload();});
+
+/* ── cover+scale 이미지를 슬롯 크기 canvas로 변환 ── */
+function renderImgToCanvas(img, wrapW, wrapH) {
+  const DPR = 2;
+  const c = document.createElement('canvas');
+  c.width  = wrapW * DPR;
+  c.height = wrapH * DPR;
+  const ctx = c.getContext('2d');
+  ctx.scale(DPR, DPR);
+
+  /* applyCover가 이미 px단위로 left/top/width/height를 설정해뒀음 */
+  const dw  = parseFloat(img.style.width)  || wrapW;
+  const dh  = parseFloat(img.style.height) || wrapH;
+  const ox  = parseFloat(img.style.left)   || 0;
+  const oy  = parseFloat(img.style.top)    || 0;
+
+  ctx.drawImage(img, ox, oy, dw, dh);
+  return c;
+}
+
+document.getElementById('btn-download').addEventListener('click', async () => {
+  if (window.innerWidth <= 768) switchMobTab('preview');
+  const btn = document.getElementById('btn-download');
+  btn.textContent = '저장 중...'; btn.disabled = true;
+
+  const cardEl = document.getElementById('card-canvas');
+
+  /* 원본 DOM에서 이미지 크기/위치 미리 수집 */
+  const imgInfos = new Map();
+  cardEl.querySelectorAll('img').forEach(img => {
+    if (img.classList.contains('hidden')) return;
+    if (!img.naturalWidth) return;
+    const parent = img.parentElement;
+    imgInfos.set(img.id || img.src, {
+      iw: parseFloat(img.style.width)  || parent.offsetWidth,
+      ih: parseFloat(img.style.height) || parent.offsetHeight,
+      il: parseFloat(img.style.left)   || 0,
+      it: parseFloat(img.style.top)    || 0,
+      pw: parent.offsetWidth,
+      ph: parent.offsetHeight,
+      src: img.src,
+    });
+  });
+
+  try {
+    const SCALE = 2;
+    const cardW = cardEl.offsetWidth;
+    const cardH = cardEl.offsetHeight;
+
+    const result = await html2canvas(cardEl, {
+      scale: SCALE,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      imageTimeout: 0,
+      width: cardW,
+      height: cardH,
+      onclone: (doc, clone) => {
+        clone.querySelectorAll('.drag-hint,.prof-drag-hint').forEach(e => e.remove());
+        clone.querySelectorAll('img').forEach(img => {
+          if (img.classList.contains('hidden')) return;
+          const key = img.id || img.src;
+          const info = imgInfos.get(key);
+          if (!info || !info.src || !info.pw || !info.ph) return;
+          const { iw, ih, il, it, pw, ph } = info;
+          const bsw = (iw / pw * 100).toFixed(3) + '%';
+          const bsh = (ih / ph * 100).toFixed(3) + '%';
+          const bpx = (iw <= pw) ? '0%' : (il / (pw - iw) * 100).toFixed(3) + '%';
+          const bpy = (ih <= ph) ? '0%' : (it / (ph - ih) * 100).toFixed(3) + '%';
+          const div = doc.createElement('div');
+          Object.assign(div.style, {
+            position: 'absolute', inset: '0',
+            backgroundImage: `url("${info.src}")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: `${bsw} ${bsh}`,
+            backgroundPosition: `${bpx} ${bpy}`,
+          });
+          img.style.display = 'none';
+          img.parentElement.appendChild(div);
+        });
+      }
+    });
+
+    const a = document.createElement('a');
+    a.download = '소개카드.png';
+    a.href = result.toDataURL('image/png');
+    a.click();
+
+  } catch(e) {
+    alert('저장에 실패했습니다. 다시 시도해주세요.'); console.error(e);
+  } finally {
+    btn.textContent = '이미지 저장 ↓'; btn.disabled = false;
+  }
 });
 
 /* ════════ 닉네임 스타일 & 색상 & 폰트 ════════ */
@@ -876,125 +1270,135 @@ let currentNickFont  = 'serif';
 
 function applyNickStyle() {
   const el = document.getElementById('disp-nick');
-  if (!el) return;
   el.className = 'nick-pill nick-style-' + currentNickStyle;
   el.style.setProperty('--nick-color', currentNickColor);
-  if (currentNickStyle === 'filled') el.style.setProperty('--nick-text-color', '#fff');
+  if (currentNickStyle === 'filled') {
+    el.style.setProperty('--nick-text-color', '#fff');
+  }
+  /* 폰트 적용 */
   el.style.fontFamily = currentNickFont === 'serif'
     ? "'Noto Serif KR', serif"
     : "'Noto Sans KR', sans-serif";
 }
+
 document.querySelectorAll('.nick-style-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nick-style-btn').forEach(b => {
-      b.style.background = 'transparent'; b.style.borderColor = 'var(--bdr)'; b.style.color = 'var(--txt2)';
+      b.style.background = 'transparent';
+      b.style.borderColor = 'var(--bdr)';
+      b.style.color = 'var(--txt2)';
     });
-    btn.style.background = 'var(--acc)'; btn.style.borderColor = 'var(--acc)'; btn.style.color = '#fff';
+    btn.style.background = 'var(--acc)';
+    btn.style.borderColor = 'var(--acc)';
+    btn.style.color = '#fff';
     currentNickStyle = btn.dataset.style;
     applyNickStyle();
   });
 });
-const nickPicker = document.getElementById('nick-color-picker');
-if (nickPicker) nickPicker.addEventListener('input', function() { currentNickColor = this.value; applyNickStyle(); });
+
+document.getElementById('nick-color-picker').addEventListener('input', function() {
+  currentNickColor = this.value;
+  applyNickStyle();
+});
+
+/* 폰트 버튼 */
 document.querySelectorAll('.nick-font-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.nick-font-btn').forEach(b => {
-      b.style.background = 'transparent'; b.style.borderColor = 'var(--bdr)'; b.style.color = 'var(--txt2)';
+      b.style.background = 'transparent';
+      b.style.borderColor = 'var(--bdr)';
+      b.style.color = 'var(--txt2)';
     });
-    btn.style.background = 'var(--acc)'; btn.style.borderColor = 'var(--acc)'; btn.style.color = '#fff';
+    btn.style.background = 'var(--acc)';
+    btn.style.borderColor = 'var(--acc)';
+    btn.style.color = '#fff';
     currentNickFont = btn.dataset.font;
     applyNickStyle();
   });
 });
 
-/* ════════ 테마 ════════ */
-const themePresets = {
-  default: { cardBg:'#eef0f8', headerBg:'#dde0f0', nickBg:'#6c85c2', sep:'#c8ccd8', txt:'#1a1a1a', txt2:'#666666' },
-  pink:    { cardBg:'#f5eef2', headerBg:'#ead8e5', nickBg:'#c4527a', sep:'#d8b8ca', txt:'#1a1a1a', txt2:'#666666' },
-  mint:    { cardBg:'#eef5f2', headerBg:'#d5eae3', nickBg:'#3a8a6e', sep:'#b0d5c5', txt:'#1a1a1a', txt2:'#666666' },
-  warm:    { cardBg:'#f5f0ea', headerBg:'#e8ddd0', nickBg:'#a06840', sep:'#d0b898', txt:'#1a1a1a', txt2:'#666666' },
-  dark:    { cardBg:'#2a2d36', headerBg:'#1e2028', nickBg:'#4a5570', sep:'#3a3f50', txt:'#e8e8e8', txt2:'#aaaaaa' },
-  custom:  null,
-};
-function applyCardColors(colors) {
-  const card = document.getElementById('card-canvas');
-  card.style.setProperty('--card-bg',   colors.cardBg);
-  card.style.setProperty('--header-bg', colors.headerBg);
-  card.style.setProperty('--nick-bg',   colors.nickBg);
-  card.style.setProperty('--sep',       colors.sep);
-  card.style.setProperty('--txt',       colors.txt);
-  card.style.setProperty('--txt2',      colors.txt2);
-  ['cc-card-bg','cc-header-bg','cc-nick-bg','cc-sep','cc-txt','cc-txt2'].forEach((id,i) => {
-    const el = document.getElementById(id);
-    const vals = [colors.cardBg, colors.headerBg, colors.nickBg, colors.sep, colors.txt, colors.txt2];
-    const vEl = document.getElementById(id+'-val');
-    if (el) el.value = vals[i];
-    if (vEl) vEl.textContent = vals[i];
+/* ════════ 이미지 드래그 & 휠 줌 ════════ */
+let imgDrag = null;
+
+function attachImgDrag() {
+  document.querySelectorAll('.card-img-slot img').forEach(img => {
+    /* 해당 슬롯 찾기 */
+    function getSlot(el) {
+      const sid = el.closest('.card-img-slot').dataset.slotId;
+      return slots.find(s => String(s.id) === String(sid));
+    }
+    function applyTransform(slot, img) {
+      const wrap = img.closest('.card-img-slot');
+      if (!wrap) return;
+      applyCover(img, wrap.offsetWidth, wrap.offsetHeight, slot.imgPos.x, slot.imgPos.y, slot.scale || 1);
+    }
+
+    /* ── 마우스 드래그 ── */
+    img.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const slot = getSlot(img);
+      if (!slot) return;
+      imgDrag = {
+        img, slot,
+        startX: e.clientX, startY: e.clientY,
+        startPx: slot.imgPos.x, startPy: slot.imgPos.y
+      };
+      img.classList.add('dragging');
+    });
+
+    /* ── 휠 줌 ── */
+    img.addEventListener('wheel', e => {
+      e.preventDefault();
+      const slot = getSlot(img);
+      if (!slot) return;
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      slot.scale = Math.max(0.5, Math.min(4.0, (slot.scale || 1) + delta));
+      applyTransform(slot, img);
+    }, { passive: false });
+
+    /* ── 터치 드래그 ── */
+    img.addEventListener('touchstart', e => {
+      const slot = getSlot(img);
+      if (!slot) return;
+      imgDrag = {
+        img, slot,
+        startX: e.touches[0].clientX, startY: e.touches[0].clientY,
+        startPx: slot.imgPos.x, startPy: slot.imgPos.y
+      };
+    }, { passive: true });
   });
-  const pc = document.querySelector('.prof-circle');
-  if (pc) pc.style.borderColor = colors.cardBg;
-  applyNickStyle();
 }
-document.querySelectorAll('.theme-swatch').forEach(sw => {
-  sw.addEventListener('click', () => {
-    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
-    sw.classList.add('active');
-    const theme = sw.dataset.theme;
-    document.body.dataset.theme = (theme === 'custom') ? '' : theme;
-    if (theme !== 'custom' && themePresets[theme]) applyCardColors(themePresets[theme]);
-  });
-});
-const ccMap = [
-  ['cc-card-bg','--card-bg','cc-card-bg-val'],['cc-header-bg','--header-bg','cc-header-bg-val'],
-  ['cc-nick-bg','--nick-bg','cc-nick-bg-val'],['cc-sep','--sep','cc-sep-val'],
-  ['cc-txt','--txt','cc-txt-val'],['cc-txt2','--txt2','cc-txt2-val'],
-];
-ccMap.forEach(([pickerId, cssVar, valId]) => {
-  const picker = document.getElementById(pickerId);
-  const valEl  = document.getElementById(valId);
-  if (!picker) return;
-  picker.addEventListener('input', () => {
-    const v = picker.value;
-    if (valEl) valEl.textContent = v;
-    document.getElementById('card-canvas').style.setProperty(cssVar, v);
-    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
-    const cSw = document.querySelector('[data-theme=custom]');
-    if (cSw) cSw.classList.add('active');
-    document.body.dataset.theme = '';
-    if (cssVar === '--nick-bg') applyNickStyle();
-    if (cssVar === '--card-bg') { const pc = document.querySelector('.prof-circle'); if(pc) pc.style.borderColor = v; }
-  });
-});
 
-/* ════════ 디자인: 슬라이더/비율 ════════ */
-const rangeH = document.getElementById('range-banner-h');
-const rangeHVal = document.getElementById('range-banner-h-val');
-if (rangeH) rangeH.addEventListener('input', () => {
-  const v = rangeH.value;
-  if (rangeHVal) rangeHVal.textContent = v + 'px';
-  document.querySelector('.card-banner').style.height = v + 'px';
-});
-const rangeW = document.getElementById('range-imgwidth');
-const rangeWVal = document.getElementById('range-imgwidth-val');
-if (rangeW) rangeW.addEventListener('input', () => {
-  const v = rangeW.value;
-  if (rangeWVal) rangeWVal.textContent = v + 'px';
-  document.getElementById('card-right').style.width = v + 'px';
-});
-let currentRatio = 75;
-const ratioBtns = document.querySelectorAll('.ratio-btn');
-ratioBtns.forEach(btn => {
-  btn.style.cssText = 'padding:5px 12px;border-radius:6px;border:1px solid var(--bdr);background:#f5f4f1;font-size:12px;font-family:inherit;cursor:pointer;transition:.15s';
-  btn.addEventListener('click', () => {
-    ratioBtns.forEach(b => { b.style.background='#f5f4f1'; b.style.borderColor='var(--bdr)'; b.style.color=''; });
-    btn.style.background='var(--acc)'; btn.style.borderColor='var(--acc)'; btn.style.color='#fff';
-    currentRatio = parseInt(btn.dataset.ratio);
-    renderCardSlots();
-  });
-});
+function moveImgDrag(clientX, clientY) {
+  if (!imgDrag) return;
+  const { img, slot, startX, startY, startPx, startPy } = imgDrag;
+  const wrap = img.closest('.card-img-slot');
+  if (!wrap) return;
 
-/* ════════ 초기화 ════════ */
-document.getElementById('btn-reset').addEventListener('click', () => { if(confirm('모든 내용을 초기화할까요?')) location.reload(); });
+  /* 실제 이미지 픽셀 이동량 → % 변환
+     이미지가 슬롯보다 넓은 만큼(초과분)을 기준으로 % 계산 */
+  const iw = parseFloat(img.style.width)  || wrap.offsetWidth;
+  const ih = parseFloat(img.style.height) || wrap.offsetHeight;
+  const excessX = Math.max(1, iw - wrap.offsetWidth);
+  const excessY = Math.max(1, ih - wrap.offsetHeight);
+
+  /* 마우스 이동 px → 이미지 위치 % 변환 (드래그 방향 = 이미지 이동 방향) */
+  const dpx = (clientX - startX) / excessX * 100;
+  const dpy = (clientY - startY) / excessY * 100;
+
+  slot.imgPos.x = Math.max(0, Math.min(100, startPx - dpx));
+  slot.imgPos.y = Math.max(0, Math.min(100, startPy - dpy));
+  applyCover(img, wrap.offsetWidth, wrap.offsetHeight, slot.imgPos.x, slot.imgPos.y, slot.scale || 1);
+}
+
+document.addEventListener('mousemove', e => { moveImgDrag(e.clientX, e.clientY); });
+document.addEventListener('mouseup', () => {
+  if (imgDrag) { imgDrag.img.classList.remove('dragging'); imgDrag = null; }
+});
+document.addEventListener('touchmove', e => {
+  if (imgDrag) moveImgDrag(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: true });
+document.addEventListener('touchend', () => { imgDrag = null; });
 
 /* ════════ 초기 렌더 ════════ */
 renderEditorSlots();
