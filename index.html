@@ -1295,143 +1295,119 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   const btn = document.getElementById('btn-download');
   btn.textContent = '저장 중...'; btn.disabled = true;
 
-  const cardEl  = document.getElementById('card-canvas');
-  const layerEl = document.getElementById('sticker-layer');
+  const cardEl = document.getElementById('card-canvas');
 
-  /* ── STEP 1: 카드가 DOM 원래 위치에 있을 때 크기 측정 ── */
-  const cardW = cardEl.offsetWidth;
-  const cardH = cardEl.offsetHeight;
-  const cardBg = getComputedStyle(cardEl).backgroundColor || '#eef0f8';
-
-  /* ── STEP 2: 스티커 정보 미리 수집 (레이어 숨기기 전에) ── */
+  /* 스티커 선택 해제 */
   const wasSelected = activeStickerEl;
   if (activeStickerEl) activeStickerEl.classList.remove('selected');
+
+  /* 스티커 정보 수집 */
   const stickerData = [];
-  layerEl.querySelectorAll('.sticker').forEach(sticker => {
-    const sImg = sticker.querySelector('.sticker-img');
-    if (!sImg || !sImg.src) return;
+  document.getElementById('sticker-layer').querySelectorAll('.sticker').forEach(s => {
+    const si = s.querySelector('.sticker-img');
+    if (!si || !si.src) return;
+    const m = (s.style.transform || '').match(/rotate\(([^)]+)deg\)/);
     stickerData.push({
-      src: sImg.src,
-      left:   parseFloat(sticker.style.left)   || 0,
-      top:    parseFloat(sticker.style.top)     || 0,
-      width:  parseFloat(sticker.style.width)   || 80,
-      height: parseFloat(sticker.style.height)  || 80,
-      rot: (() => {
-        const m = (sticker.style.transform || '').match(/rotate\(([^)]+)deg\)/);
-        return m ? parseFloat(m[1]) * Math.PI / 180 : 0;
-      })()
+      src:    si.src,
+      left:   parseFloat(s.style.left)   || 0,
+      top:    parseFloat(s.style.top)    || 0,
+      width:  parseFloat(s.style.width)  || 80,
+      height: parseFloat(s.style.height) || 80,
+      rot:    m ? parseFloat(m[1]) * Math.PI / 180 : 0,
     });
   });
 
-  /* ── STEP 3: 이미지들을 background-image div로 교체 (카드 원위치에서 측정) ── */
-  const replacements = [];
-  function replaceWithBg(img, container) {
-    if (!img || img.classList.contains('hidden') || !img.naturalWidth) return;
-    container = container || img.parentElement;
-    const cw = container.offsetWidth, ch = container.offsetHeight;
-    if (!cw || !ch) return;
-    const iw = parseFloat(img.style.width)  || cw;
-    const ih = parseFloat(img.style.height) || ch;
-    const il = parseFloat(img.style.left)   || 0;
-    const it = parseFloat(img.style.top)    || 0;
-    const bsw  = (iw / cw * 100).toFixed(4) + '%';
-    const bsh  = (ih / ch * 100).toFixed(4) + '%';
-    const bplP = iw <= cw ? '0%' : (il / (cw - iw) * 100).toFixed(4) + '%';
-    const bptP = ih <= ch ? '0%' : (it / (ch - ih) * 100).toFixed(4) + '%';
-    const div = document.createElement('div');
-    div.dataset.bgReplace = '1';
-    Object.assign(div.style, {
-      position: 'absolute', inset: '0',
-      backgroundImage: `url("${img.src}")`,
-      backgroundRepeat: 'no-repeat',
-      backgroundSize: `${bsw} ${bsh}`,
-      backgroundPosition: `${bplP} ${bptP}`,
-      pointerEvents: 'none', zIndex: '1',
-    });
-    img.style.display = 'none';
-    container.appendChild(div);
-    replacements.push({ img, div });
-  }
-  replaceWithBg(document.getElementById('img-banner'),  document.getElementById('card-banner-wrap'));
-  replaceWithBg(document.getElementById('img-profile'), document.getElementById('prof-circle-wrap'));
-  cardEl.querySelectorAll('.card-img-slot img').forEach(img => replaceWithBg(img, img.closest('.card-img-slot')));
-
-  /* ── STEP 4: 스티커 레이어 숨기기 ── */
-  layerEl.style.display = 'none';
-
-  /* ── STEP 5: 카드 너비 고정 ── */
-  const origW = cardEl.style.width;
-  cardEl.style.width = cardW + 'px';
-
-  /* ── STEP 6: 카드를 화면 밖으로 이동 후 캡처 ── */
-  const anchor = document.createElement('span');
-  cardEl.parentNode.insertBefore(anchor, cardEl);
-  const tmpWrap = document.createElement('div');
-  tmpWrap.style.cssText = `position:fixed;left:-${cardW + 200}px;top:0;width:${cardW}px;height:${cardH}px;overflow:visible;z-index:-9999;`;
-  tmpWrap.appendChild(cardEl);
-  document.body.appendChild(tmpWrap);
-
-  let baseCanvas = null;
   try {
-    baseCanvas = await html2canvas(cardEl, {
-      scale: 1,
+    const SCALE = 2;
+    const cardW = cardEl.offsetWidth;
+    const cardH = cardEl.offsetHeight;
+
+    /* onclone: html2canvas가 DOM을 복제한 후 호출 — 원본 DOM은 건드리지 않음 */
+    const result = await html2canvas(cardEl, {
+      scale: SCALE,
       useCORS: true,
       allowTaint: true,
-      backgroundColor: cardBg,
       logging: false,
       imageTimeout: 0,
       width:  cardW,
       height: cardH,
+      onclone: (doc, cloneEl) => {
+        /* 복제된 카드에서만 수정 — 원본 미리보기 영향 없음 */
+
+        /* 1) 스티커 레이어 제거 */
+        const cl = cloneEl.querySelector('.sticker-layer');
+        if (cl) cl.remove();
+
+        /* 2) 드래그 힌트 제거 */
+        cloneEl.querySelectorAll('.drag-hint,.prof-drag-hint').forEach(e => e.remove());
+
+        /* 3) img의 position:absolute + left/top/width/height(px) →
+              object-fit:cover + object-position 으로 변환
+              (html2canvas는 object-fit을 지원하므로 정확히 렌더링됨) */
+        cloneEl.querySelectorAll('img').forEach(img => {
+          if (img.classList.contains('hidden') || img.classList.contains('sticker-img')) return;
+          if (!img.naturalWidth) return;
+
+          const iw  = parseFloat(img.style.width)  || 0;
+          const ih  = parseFloat(img.style.height) || 0;
+          const il  = parseFloat(img.style.left)   || 0;
+          const it  = parseFloat(img.style.top)    || 0;
+          const pw  = img.parentElement.offsetWidth  || iw;
+          const ph  = img.parentElement.offsetHeight || ih;
+
+          /* object-position %: il이 음수→이미지 왼쪽이 잘림 */
+          const opx = iw <= pw ? 0 : Math.round(il / (pw - iw) * 100);
+          const opy = ih <= ph ? 0 : Math.round(it / (ph - ih) * 100);
+
+          img.style.cssText = [
+            'position:absolute',
+            'inset:0',
+            'width:100%',
+            'height:100%',
+            'object-fit:cover',
+            `object-position:${opx}% ${opy}%`,
+            'display:block',
+            'transform:none',
+          ].join(';');
+        });
+      }
     });
-  } catch(e) {
-    alert('저장에 실패했습니다.'); console.error(e);
-  } finally {
-    /* ── STEP 7: 모든 것 복원 ── */
-    anchor.parentNode.insertBefore(cardEl, anchor);
-    anchor.remove();
-    if (tmpWrap.parentNode) tmpWrap.remove();
-    replacements.forEach(({ img, div }) => { img.style.display = ''; div.remove(); });
-    cardEl.style.width = origW;
-    layerEl.style.display = '';
-    if (wasSelected) wasSelected.classList.add('selected');
-  }
 
-  if (!baseCanvas) { btn.textContent = '이미지 저장 ↓'; btn.disabled = false; return; }
+    /* 스티커를 result canvas 위에 합성 */
+    const out = document.createElement('canvas');
+    out.width  = result.width;
+    out.height = result.height;
+    const ctx = out.getContext('2d');
+    ctx.drawImage(result, 0, 0);
 
-  /* ── STEP 8: 2배 캔버스에 카드 + 스티커 합성 ── */
-  const SCALE = 2;
-  const out = document.createElement('canvas');
-  out.width  = cardW * SCALE;
-  out.height = cardH * SCALE;
-  const ctx = out.getContext('2d');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(baseCanvas, 0, 0, out.width, out.height);
+    const sp = stickerData.map(s => new Promise(res => {
+      const ti = new Image();
+      ti.crossOrigin = 'anonymous';
+      ti.onload = () => {
+        ctx.save();
+        ctx.translate((s.left + s.width/2)*SCALE, (s.top + s.height/2)*SCALE);
+        ctx.rotate(s.rot);
+        ctx.drawImage(ti, -s.width/2*SCALE, -s.height/2*SCALE, s.width*SCALE, s.height*SCALE);
+        ctx.restore();
+        res();
+      };
+      ti.onerror = res;
+      ti.src = s.src;
+    }));
 
-  /* 스티커를 Canvas에 직접 그리기 */
-  const stickerPromises = stickerData.map(s => new Promise(resolve => {
-    const tmpImg = new Image();
-    tmpImg.crossOrigin = 'anonymous';
-    tmpImg.onload = () => {
-      ctx.save();
-      ctx.translate((s.left + s.width / 2) * SCALE, (s.top + s.height / 2) * SCALE);
-      ctx.rotate(s.rot);
-      ctx.drawImage(tmpImg, -s.width / 2 * SCALE, -s.height / 2 * SCALE, s.width * SCALE, s.height * SCALE);
-      ctx.restore();
-      resolve();
-    };
-    tmpImg.onerror = resolve;
-    tmpImg.src = s.src;
-  }));
+    await Promise.all(sp);
 
-  Promise.all(stickerPromises).then(() => {
     const a = document.createElement('a');
     a.download = '소개카드.png';
     a.href = out.toDataURL('image/png');
     a.click();
-    btn.textContent = '이미지 저장 ↓';
-    btn.disabled = false;
-  });
+
+  } catch(e) {
+    alert('저장에 실패했습니다. 다시 시도해주세요.'); console.error(e);
+  } finally {
+    if (wasSelected) wasSelected.classList.add('selected');
+    btn.textContent = '이미지 저장 ↓'; btn.disabled = false;
+  }
 });
 
 /* ════════ 닉네임 스타일 & 색상 & 폰트 ════════ */
