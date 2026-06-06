@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>소개카드 메이커</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --acc:#4a6fa5;--acc-l:#3a5a8a;--muted:#999;
+  --bg:#eef0f5;--panel:#fff;
+  --bdr:#dde0e8;--txt:#1a1a1a;--txt2:#666;
+  --font:'Noto Sans KR',sans-serif;
+  --serif:'Noto Serif KR',serif;
+  --card-bg:#eef0f8;--header-bg:#dde0f0;
+  --nick-bg:#6c85c2;--nick-fg:#fff;--sep:#c8ccd8;
+}
+body[data-theme=pink]{--card-bg:#f5eef2;--header-bg:#ead8e5;--nick-bg:#c4527a;--sep:#d8b8ca}
+body[data-theme=mint]{--card-bg:#eef5f2;--header-bg:#d5eae3;--nick-bg:#3a8a6e;--sep:#b0d5c5}
+body[data-theme=warm]{--card-bg:#f5f0ea;--header-bg:#e8ddd0;--nick-bg:#a06840;--sep:#d0b898}
+body[data-theme=dark]{--card-bg:#2a2d36;--header-bg:#1e2028;--nick-bg:#4a5570;--sep:#3a3f50;--txt:#e8e8e8;--txt2:#aaa}
+
+html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-size:14px;line-height:1.6}
+
+/* ══ 사이트 헤더 ══ */
+.site-header{position:sticky;top:0;z-index:200;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);border-bottom:1px solid var(--bdr)}
+.header-inner{max-width:1400px;margin:0 auto;padding:0 18px;height:52px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.logo{font-family:var(--serif);font-size:17px;font-weight:700;white-space:nowrap}
+.header-actions{display:flex;gap:6px;flex-shrink:0}
+.btn{padding:6px 14px;border-radius:6px;font-size:13px;font-family:var(--font);font-weight:500;cursor:pointer;transition:.15s;border:1px solid transparent;white-space:nowrap}
+.btn-ghost{background:transparent;border-color:var(--bdr);color:var(--txt2)}
+.btn-ghost:hover{border-color:#999;color:var(--txt)}
+.btn-primary{background:var(--acc);color:#fff;border-color:var(--acc)}
+.btn-primary:hover{background:var(--acc-l)}
+
+/* ══ 모바일 뷰 탭 ══ */
+.mob-tabs{display:none;border-bottom:1px solid var(--bdr);background:var(--panel)}
+.mob-tab{flex:1;padding:10px 8px;text-align:center;font-size:13px;font-weight:500;color:var(--txt2);background:none;border:none;border-bottom:2.5px solid transparent;cursor:pointer;font-family:var(--font);transition:.15s}
+.mob-tab.active{color:var(--acc);border-bottom-color:var(--acc)}
+
+/* ══ 전체 레이아웃 ══ */
+.main-layout{display:grid;grid-template-columns:340px 1fr;height:calc(100vh - 52px);overflow:hidden}
+
+/* ══ 편집 패널 ══ */
+.editor-panel{background:var(--panel);border-right:1px solid var(--bdr);overflow:hidden;display:flex;flex-direction:column}
+
+/* 편집 탭 바 */
+.edit-tabs{
+  display:flex;border-bottom:1px solid var(--bdr);
+  background:var(--panel);flex-shrink:0;
+  position:sticky;top:0;z-index:10;
+}
+.edit-tab{
+  flex:1;padding:11px 6px;text-align:center;
+  font-size:12px;font-weight:500;color:var(--txt2);
+  background:none;border:none;border-bottom:2.5px solid transparent;
+  cursor:pointer;font-family:var(--font);transition:.15s;
+  white-space:nowrap;
+}
+.edit-tab:hover{color:var(--txt)}
+.edit-tab.active{color:var(--acc);border-bottom-color:var(--acc);font-weight:700}
+
+/* 탭 컨텐츠 */
+.tab-pane{display:none;flex:1;overflow-y:auto;padding:18px 18px 48px;scrollbar-width:thin;scrollbar-color:var(--bdr) transparent}
+.tab-pane.active{display:block}
+
+/* 폼 공통 */
+.panel-sec{margin-bottom:22px}
+.sec-title{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;padding-bottom:5px;border-bottom:1px solid var(--bdr)}
+.form-group{margin-bottom:10px}
+.form-group label{display:block;font-size:12px;color:var(--txt2);margin-bottom:4px}
+.form-input,.form-textarea{width:100%;padding:8px 10px;border:1px solid var(--bdr);border-radius:6px;font-size:13px;font-family:var(--font);background:#faf9f7;color:var(--txt);outline:none;transition:border-color .15s}
+.form-input:focus,.form-textarea:focus{border-color:var(--acc)}
+.form-textarea{resize:vertical;line-height:1.6}
+
+/* 체크 칩 */
+.checkbox-grid{display:flex;flex-wrap:wrap;gap:5px}
+.chip-label{display:flex;align-items:center;gap:4px;padding:5px 10px;background:#f5f4f1;border:1px solid var(--bdr);border-radius:20px;font-size:12px;cursor:pointer;transition:.15s;user-select:none}
+.chip-label input{display:none}
+.chip-label.on{background:var(--acc);border-color:var(--acc);color:#fff}
+
+/* 이미지 슬롯 (편집) */
+.img-slot-list{display:flex;flex-direction:column;gap:8px}
+.img-slot-item{border:1px solid var(--bdr);border-radius:8px;overflow:hidden;background:#fafaf8}
+.slot-header{display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f5f4f0;border-bottom:1px solid var(--bdr)}
+.slot-num{font-size:11px;font-weight:700;color:var(--muted);background:#e8e7e2;border-radius:4px;padding:1px 7px;flex-shrink:0}
+.slot-label-input{flex:1;border:none;background:transparent;font-size:12px;font-family:var(--font);color:var(--txt);outline:none;padding:0}
+.slot-label-input::placeholder{color:#bbb}
+.slot-del-btn{background:none;border:none;cursor:pointer;color:#bbb;font-size:17px;line-height:1;padding:0 2px;transition:color .15s;flex-shrink:0}
+.slot-del-btn:hover{color:#c0392b}
+.slot-upload{position:relative;display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;min-height:48px;transition:background .15s}
+.slot-upload:hover{background:#f0eeeb}
+.slot-upload input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.slot-thumb{width:40px;height:40px;object-fit:cover;border-radius:4px;flex-shrink:0;border:1px solid var(--bdr)}
+.slot-upload-hint{font-size:12px;color:var(--muted)}
+.slot-filename{font-size:11px;color:var(--txt2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.add-slot-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;border:1.5px dashed var(--bdr);border-radius:8px;background:transparent;color:var(--muted);font-size:13px;font-family:var(--font);cursor:pointer;transition:.15s;width:100%;margin-top:8px}
+.add-slot-btn:hover{border-color:var(--acc);color:var(--acc);background:rgba(74,111,165,.04)}
+
+/* 프로필 업로드 박스 */
+.profile-upload-box{position:relative;border:1.5px dashed var(--bdr);border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:.15s;background:#faf9f7;min-height:56px;display:flex;align-items:center;justify-content:center;overflow:hidden;gap:8px}
+.profile-upload-box:hover{border-color:var(--muted)}
+.profile-upload-box.has-img{border-style:solid;border-color:var(--acc)}
+.profile-upload-box input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.prof-thumb{width:44px;height:44px;object-fit:cover;border-radius:50%;flex-shrink:0;border:2px solid var(--acc)}
+.upload-hint-txt{font-size:12px;color:var(--muted)}
+
+/* 테마 */
+.theme-picker{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.theme-swatch{width:26px;height:26px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:.15s}
+.theme-swatch:hover{transform:scale(1.12)}
+.theme-swatch.active{border-color:#333;outline:2px solid rgba(0,0,0,.15)}
+
+/* ══ 미리보기 ══ */
+.preview-area{display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+.preview-bar{padding:9px 20px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;gap:10px;background:rgba(238,240,245,.9)}
+.preview-lbl{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.preview-hint{font-size:12px;color:var(--muted)}
+.preview-scroll{flex:1;overflow-y:auto;padding:28px;display:flex;justify-content:center;align-items:flex-start}
+
+/* ════════════════════════════════
+   카드 캔버스
+════════════════════════════════ */
+.card-canvas{
+  width:780px;min-width:780px;
+  background:var(--card-bg);border-radius:12px;
+  box-shadow:0 2px 24px rgba(0,0,0,.10);position:relative;font-family:var(--font);
+}
+/* 배너+헤더를 감싸는 wrapper가 overflow:hidden 담당 */
+.card-top{border-radius:12px 12px 0 0;overflow:hidden;position:relative;}
+.wm{position:absolute;top:8px;right:14px;font-size:10px;color:rgba(0,0,0,.2);z-index:10}
+
+/* ── 트위터 스타일 헤더 ── */
+.card-banner{
+  width:100%;height:160px;
+  background:var(--header-bg);
+  position:relative;overflow:hidden;flex-shrink:0;
+}
+.card-banner img{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:50% 50%;
+  display:block;
+  cursor:grab;
+  user-select:none;-webkit-user-drag:none;
+}
+.card-banner img.dragging{cursor:grabbing}
+.card-banner-ph{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:rgba(0,0,0,.25);
+}
+.card-banner .drag-hint{
+  position:absolute;bottom:8px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.45);color:#fff;
+  font-size:10px;padding:2px 8px;border-radius:10px;
+  pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap;z-index:5;
+}
+.card-banner:hover .drag-hint{opacity:1}
+
+/* 헤더 영역: 배너 바로 아래, 프로필 원이 위로 튀어나옴 */
+.card-header{
+  background:var(--card-bg);
+  padding:0 24px 18px;
+  position:relative;
+  /* 프로필 원이 배너와 겹치도록 넘칠 공간 확보 */
+  overflow:visible;
+}
+/* 프로필 원형: 절반이 배너 위로 올라감 */
+.prof-circle{
+  width:110px;height:110px;border-radius:50%;
+  overflow:hidden;
+  border:5px solid var(--card-bg);
+  background:#c0c4d8;
+  display:flex;align-items:center;justify-content:center;
+  /* 핵심: 배너 높이의 절반만큼 위로 당김 */
+  margin-top:-55px;
+  position:relative;
+  z-index:10;
+  flex-shrink:0;
+}
+.prof-circle img{
+  width:100%;height:100%;
+  object-fit:cover;display:block;
+  object-position:50% 50%;
+  cursor:grab;
+  user-select:none;-webkit-user-drag:none;
+  transition:outline .1s;
+}
+.prof-circle img.dragging{cursor:grabbing}
+.prof-circle-ph{font-size:10px;color:rgba(255,255,255,.45);text-align:center;padding:8px;line-height:1.4}
+/* 프로필 드래그 힌트 */
+.prof-circle .prof-drag-hint{
+  position:absolute;bottom:6px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.5);color:#fff;
+  font-size:9px;padding:2px 7px;border-radius:8px;
+  pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap;z-index:5;
+}
+.prof-circle:hover .prof-drag-hint{opacity:1}
+
+/* 헤더 내부 */
+.header-row{display:flex;align-items:flex-end;gap:16px}
+.header-info{flex:1;min-width:0;padding-bottom:4px}
+.header-meta{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.header-meta-line{font-size:12px;line-height:1.5}
+
+/* ── 닉네임 스타일 3종 ── */
+/* filled: 채워진 사각형 (기본) */
+.nick-pill{
+  display:inline-block;
+  font-size:20px;font-weight:700;font-family:var(--serif);
+  padding:5px 22px;border-radius:7px;margin-bottom:4px;
+  line-height:1.3;
+}
+.nick-style-filled{
+  background:var(--nick-color,#6c85c2);
+  color:var(--nick-text-color,#fff);
+  border:none;
+}
+/* outline: 외곽선만 */
+.nick-style-outline{
+  background:transparent;
+  color:var(--nick-color,#6c85c2);
+  border:2.5px solid var(--nick-color,#6c85c2);
+}
+/* plain: 텍스트만 */
+.nick-style-plain{
+  background:transparent;
+  color:var(--nick-color,#6c85c2);
+  border:none;
+  padding-left:0;padding-right:0;
+}
+
+/* 바디 */
+.card-body{display:flex;align-items:stretch}
+.card-left{flex:1;padding:20px 24px 24px;min-width:0;border-right:1px solid var(--sep)}
+/* ── 태그 행 ── */
+.tag-row{display:flex;flex-wrap:wrap;gap:6px;padding:12px 0 4px;}
+.card-tag{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px 3px 7px;
+  border-radius:20px;
+  font-size:12px;font-weight:500;
+  white-space:nowrap;
+  background:rgba(0,0,0,.06);
+  color:var(--txt2);
+}
+.card-tag-dot{
+  width:8px;height:8px;border-radius:50%;
+  flex-shrink:0;display:inline-block;
+}
+.card-tag-text{line-height:1.3}
+/* FREE 섹션 */
+.free-section{margin-top:12px}
+.free-section+.free-section{border-top:1px solid var(--sep);margin-top:10px;padding-top:10px}
+.free-title{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.free-box{background:rgba(0,0,0,.04);border-radius:7px;padding:10px 12px;font-size:12px;color:var(--txt2);line-height:1.75;white-space:pre-wrap;min-height:48px}
+
+/* 오른쪽 이미지 */
+.card-right{flex-shrink:0;width:220px;display:flex;flex-direction:column;gap:12px;padding:16px 12px;background:var(--card-bg)}
+.card-img-slot{
+  border-radius:8px;overflow:hidden;background:rgba(0,0,0,.08);
+  position:relative;width:100%;
+  /* 기본 높이 — JS로 ratio 변경 가능 */
+  height:160px;
+}
+.card-img-slot img{
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  object-fit:cover;
+  object-position:50% 50%;
+  display:block;
+  cursor:grab;
+  user-select:none;
+  -webkit-user-drag:none;
+  pointer-events:auto;
+}
+.card-img-slot img.dragging{cursor:grabbing}
+.card-img-slot-ph{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:rgba(0,0,0,.25);text-align:center;padding:10px;line-height:1.5
+}
+/* 드래그 힌트 오버레이 */
+.drag-hint{
+  position:absolute;bottom:5px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.45);color:#fff;
+  font-size:10px;padding:2px 8px;border-radius:10px;
+  pointer-events:none;opacity:0;transition:opacity .2s;white-space:nowrap;
+}
+.card-img-slot:hover .drag-hint{opacity:1}
+.card-img-label{font-size:11px;color:var(--txt2);text-align:center;margin-top:4px;line-height:1.3}
+.card-img-label:empty{display:none}
+
+.hidden{display:none!important}
+
+/* ══ 스티커 ══ */
+.sticker-layer{
+  position:absolute;inset:0;
+  pointer-events:none;   /* 기본은 통과 — 스티커만 events 받음 */
+  z-index:50;
+  overflow:hidden;
+}
+.sticker{
+  position:absolute;
+  cursor:move;
+  pointer-events:all;
+  user-select:none;
+  touch-action:none;
+  /* 선택 시 테두리 */
+}
+.sticker.selected .sticker-img{
+  outline:2px dashed rgba(74,111,165,.7);
+  outline-offset:2px;
+}
+.sticker-img{
+  display:block;width:100%;height:100%;
+  object-fit:contain;
+  pointer-events:none;
+  -webkit-user-drag:none;
+}
+/* 리사이즈 핸들 */
+.sticker-handle{
+  position:absolute;
+  width:12px;height:12px;
+  background:#fff;border:2px solid #4a6fa5;
+  border-radius:2px;
+  cursor:nwse-resize;
+  pointer-events:all;
+  right:-6px;bottom:-6px;
+  z-index:2;
+}
+/* 삭제 버튼 */
+.sticker-del{
+  position:absolute;
+  top:-10px;right:-10px;
+  width:20px;height:20px;
+  background:#e74c3c;color:#fff;
+  border:none;border-radius:50%;
+  font-size:13px;line-height:1;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:all;
+  z-index:3;
+  opacity:0;transition:opacity .15s;
+}
+.sticker.selected .sticker-del{opacity:1}
+/* 회전 핸들 */
+.sticker-rot{
+  position:absolute;
+  top:-24px;left:50%;transform:translateX(-50%);
+  width:18px;height:18px;
+  background:#fff;border:2px solid #4a6fa5;
+  border-radius:50%;
+  cursor:grab;
+  display:flex;align-items:center;justify-content:center;
+  font-size:10px;
+  pointer-events:all;
+  z-index:3;
+  opacity:0;transition:opacity .15s;
+}
+.sticker.selected .sticker-rot{opacity:1}
+/* 편집 패널 스티커 목록 */
+.sticker-thumb-list{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.sticker-thumb-item{
+  position:relative;width:56px;height:56px;
+  border:1.5px solid var(--bdr);border-radius:8px;
+  overflow:hidden;cursor:pointer;transition:.15s;
+  background:#faf9f7;
+  display:flex;align-items:center;justify-content:center;
+}
+.sticker-thumb-item:hover{border-color:var(--acc)}
+.sticker-thumb-item img{max-width:100%;max-height:100%;object-fit:contain}
+.sticker-thumb-item .del-thumb{
+  position:absolute;top:2px;right:2px;
+  width:16px;height:16px;border-radius:50%;
+  background:rgba(0,0,0,.5);color:#fff;
+  font-size:11px;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .15s;
+}
+.sticker-thumb-item:hover .del-thumb{opacity:1}
+
+/* ══ 모바일 ══ */
+@media(max-width:768px){
+  .mob-tabs{display:flex}
+  .main-layout{display:block;height:auto;overflow:visible}
+  .editor-panel{width:100%;border-right:none;overflow:visible;display:flex;flex-direction:column;max-height:none}
+  .tab-pane{overflow:visible}
+  .editor-panel.mob-hidden,.preview-area.mob-hidden{display:none}
+  .preview-area{display:block}
+  .preview-scroll{padding:12px;overflow-x:auto;justify-content:flex-start}
+  .card-canvas{width:780px;min-width:780px}
+  .btn{padding:5px 10px;font-size:12px}
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div class="logo">소개카드 메이커</div>
+    <div class="header-actions">
+      <button id="btn-reset" class="btn btn-ghost">초기화</button>
+      <button id="btn-download" class="btn btn-primary">이미지 저장 ↓</button>
+    </div>
+  </div>
+</header>
+
+<div class="mob-tabs">
+  <button class="mob-tab active" id="mob-tab-edit" onclick="switchMobTab('edit')">✏️ 편집</button>
+  <button class="mob-tab" id="mob-tab-preview" onclick="switchMobTab('preview')">👁 미리보기</button>
+</div>
+
+<main class="main-layout">
+
+  <!-- ══ 편집 패널 ══ -->
+  <aside class="editor-panel" id="editor-panel">
+
+    <!-- 편집 탭 바 -->
+    <div class="edit-tabs">
+      <button class="edit-tab active" data-pane="pane-profile">프로필</button>
+      <button class="edit-tab" data-pane="pane-images">이미지</button>
+      <button class="edit-tab" data-pane="pane-design">디자인</button>
+    </div>
+
+    <!-- ── 탭 1: 프로필 ── -->
+    <div class="tab-pane active" id="pane-profile">
+      <div class="panel-sec">
+        <h3 class="sec-title">기본 정보</h3>
+        <div class="form-group"><label>닉네임</label><input type="text" id="in-nick" placeholder="닉네임" class="form-input"/></div>
+
+        <!-- 닉네임 스타일 (닉네임 입력 바로 아래) -->
+        <div class="form-group">
+          <label style="margin-bottom:6px;display:block">닉네임 스타일</label>
+          <div style="display:flex;gap:5px;margin-bottom:8px">
+            <button class="nick-style-btn active" data-style="filled"
+              style="flex:1;padding:6px 4px;border-radius:6px;border:1.5px solid var(--acc);background:var(--acc);color:#fff;font-size:12px;font-family:inherit;cursor:pointer;transition:.15s">■ 채움</button>
+            <button class="nick-style-btn" data-style="outline"
+              style="flex:1;padding:6px 4px;border-radius:6px;border:1.5px solid var(--bdr);background:transparent;color:var(--txt2);font-size:12px;font-family:inherit;cursor:pointer;transition:.15s">□ 외곽선</button>
+            <button class="nick-style-btn" data-style="plain"
+              style="flex:1;padding:6px 4px;border-radius:6px;border:1.5px solid var(--bdr);background:transparent;color:var(--txt2);font-size:12px;font-family:inherit;cursor:pointer;transition:.15s">가 텍스트만</button>
+          </div>
+          <label style="font-size:12px;color:var(--txt2);display:flex;align-items:center;gap:8px">
+            색상
+            <input type="color" id="nick-color-picker" value="#6c85c2"
+              style="width:30px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:4px"/>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label style="display:flex;align-items:center;justify-content:space-between">
+            <span>헤더 부가 정보 <small style="color:#bbb">(줄바꿈으로 구분)</small></span>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--txt2);font-weight:400">
+              색상 <input type="color" id="meta-color-picker" value="#666666"
+                style="width:26px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:3px"/>
+            </label>
+          </label>
+          <textarea id="in-header-meta" rows="3" placeholder="줄바꿈으로 여러 줄 입력" class="form-textarea"></textarea>
+        </div>
+      </div>
+
+      <!-- 태그 빌더 -->
+      <div class="panel-sec">
+        <h3 class="sec-title">태그 <span style="font-weight:400;color:var(--muted)">(카드 상단 정보란)</span></h3>
+        <div id="tag-builder-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+        <button id="btn-add-tag" style="width:100%;padding:8px;border:1.5px dashed var(--bdr);border-radius:8px;background:transparent;color:var(--muted);font-size:13px;font-family:inherit;cursor:pointer;transition:.15s"
+          onmouseover="this.style.borderColor='var(--acc)';this.style.color='var(--acc)'"
+          onmouseout="this.style.borderColor='var(--bdr)';this.style.color='var(--muted)'">＋ 태그 추가</button>
+      </div>
+
+      <div class="panel-sec">
+        <h3 class="sec-title">자유 기입 섹션</h3>
+        <div id="free-builder-list" style="display:flex;flex-direction:column;gap:10px;margin-bottom:8px"></div>
+        <button id="btn-add-free"
+          style="width:100%;padding:8px;border:1.5px dashed var(--bdr);border-radius:8px;background:transparent;color:var(--muted);font-size:13px;font-family:inherit;cursor:pointer;transition:.15s"
+          onmouseover="this.style.borderColor='var(--acc)';this.style.color='var(--acc)'"
+          onmouseout="this.style.borderColor='var(--bdr)';this.style.color='var(--muted)'">＋ 섹션 추가</button>
+      </div>
+    </div>
+
+    <!-- ── 탭 2: 이미지 ── -->
+    <div class="tab-pane" id="pane-images">
+      <div class="panel-sec">
+        <h3 class="sec-title">배너 이미지</h3>
+        <div class="form-group">
+          <label>상단 배너 (가로로 넓은 이미지 권장)</label>
+          <div class="profile-upload-box" id="up-banner">
+            <input type="file" accept="image/*"/>
+            <span class="upload-hint-txt">클릭 또는 드래그</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-sec">
+        <h3 class="sec-title">프로필 사진</h3>
+        <div class="form-group">
+          <label>원형 프로필 이미지 (배너와 겹쳐서 표시)</label>
+          <div class="profile-upload-box" id="up-profile">
+            <input type="file" accept="image/*"/>
+            <span class="upload-hint-txt">클릭 또는 드래그</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel-sec">
+        <h3 class="sec-title">최애 이미지 <span style="font-weight:400;color:var(--muted)">(오른쪽 패널, 순서대로)</span></h3>
+        <div class="img-slot-list" id="slot-list"></div>
+        <button class="add-slot-btn" id="btn-add-slot">＋ 이미지 칸 추가</button>
+      </div>
+
+      <!-- 스티커 섹션 -->
+      <div class="panel-sec">
+        <h3 class="sec-title">스티커 🎀 <span style="font-weight:400;color:var(--muted)">(카드 위에 자유롭게 배치)</span></h3>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.6">PNG/GIF 이미지를 스티커로 추가해보세요.<br>카드에서 드래그로 이동 · 모서리 핸들로 크기 조절 · 클릭 후 삭제 가능</p>
+        <div class="sticker-thumb-list" id="sticker-thumb-list"></div>
+        <div style="position:relative">
+          <div class="profile-upload-box" id="up-sticker">
+            <input type="file" accept="image/*" multiple/>
+            <span class="upload-hint-txt">＋ 스티커 이미지 추가</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 탭 3: 디자인 ── -->
+    <div class="tab-pane" id="pane-design">
+      <div class="panel-sec">
+        <h3 class="sec-title">배너 높이</h3>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="range" id="range-banner-h" min="80" max="280" value="160" style="flex:1"/>
+          <span id="range-banner-h-val" style="font-size:12px;color:var(--txt2);width:40px;text-align:right">160px</span>
+        </div>
+      </div>
+      <div class="panel-sec">
+        <h3 class="sec-title">카드 색상</h3>
+        <p style="font-size:11px;color:var(--muted);margin-bottom:10px">프리셋을 선택하거나 각 색상을 직접 지정하세요.</p>
+
+        <!-- 프리셋 -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+          <button class="theme-swatch active" data-theme="default" style="background:#6c85c2" title="블루"></button>
+          <button class="theme-swatch" data-theme="pink"    style="background:#c4527a" title="핑크"></button>
+          <button class="theme-swatch" data-theme="mint"    style="background:#3a8a6e" title="민트"></button>
+          <button class="theme-swatch" data-theme="warm"    style="background:#a06840" title="웜"></button>
+          <button class="theme-swatch" data-theme="dark"    style="background:#2a2d36" title="다크"></button>
+          <button class="theme-swatch" data-theme="custom"  style="background:linear-gradient(135deg,#f8a,#a8f,#8af);border:2px dashed #aaa" title="커스텀"></button>
+        </div>
+
+        <!-- 커스텀 색상 피커들 -->
+        <div id="custom-color-panel" style="display:flex;flex-direction:column;gap:8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <label style="font-size:11px;color:var(--txt2)">
+              카드 배경
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+                <input type="color" id="cc-card-bg"   value="#eef0f8" style="width:34px;height:28px;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;padding:1px"/>
+                <span id="cc-card-bg-val"   style="font-size:11px;color:var(--muted)">#eef0f8</span>
+              </div>
+            </label>
+            <label style="font-size:11px;color:var(--txt2)">
+              헤더 배경
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+                <input type="color" id="cc-header-bg" value="#dde0f0" style="width:34px;height:28px;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;padding:1px"/>
+                <span id="cc-header-bg-val" style="font-size:11px;color:var(--muted)">#dde0f0</span>
+              </div>
+            </label>
+            <label style="font-size:11px;color:var(--txt2)">
+              닉네임 색
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+                <input type="color" id="cc-nick-bg"   value="#6c85c2" style="width:34px;height:28px;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;padding:1px"/>
+                <span id="cc-nick-bg-val"   style="font-size:11px;color:var(--muted)">#6c85c2</span>
+              </div>
+            </label>
+            <label style="font-size:11px;color:var(--txt2)">
+              구분선 색
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+                <input type="color" id="cc-sep"       value="#c8ccd8" style="width:34px;height:28px;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;padding:1px"/>
+                <span id="cc-sep-val"       style="font-size:11px;color:var(--muted)">#c8ccd8</span>
+              </div>
+            </label>
+            <label style="font-size:11px;color:var(--txt2)">
+              본문 텍스트
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+                <input type="color" id="cc-txt"       value="#1a1a1a" style="width:34px;height:28px;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;padding:1px"/>
+                <span id="cc-txt-val"       style="font-size:11px;color:var(--muted)">#1a1a1a</span>
+              </div>
+            </label>
+            <label style="font-size:11px;color:var(--txt2)">
+              보조 텍스트
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px">
+                <input type="color" id="cc-txt2"      value="#666666" style="width:34px;height:28px;border:1px solid var(--bdr);border-radius:6px;cursor:pointer;padding:1px"/>
+                <span id="cc-txt2-val"      style="font-size:11px;color:var(--muted)">#666666</span>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="panel-sec">
+        <h3 class="sec-title">카드 너비 설정</h3>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px">오른쪽 이미지 패널 너비</p>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="range" id="range-imgwidth" min="140" max="340" value="220" style="flex:1"/>
+          <span id="range-imgwidth-val" style="font-size:12px;color:var(--txt2);width:36px;text-align:right">220px</span>
+        </div>
+      </div>
+      <div class="panel-sec">
+        <h3 class="sec-title">이미지 비율</h3>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:10px">오른쪽 이미지 슬롯 높이 비율</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="ratio-btn active" data-ratio="75">4:3</button>
+          <button class="ratio-btn" data-ratio="100">1:1</button>
+          <button class="ratio-btn" data-ratio="133">3:4</button>
+          <button class="ratio-btn" data-ratio="56">16:9</button>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ══ 미리보기 ══ -->
+  <div class="preview-area mob-hidden" id="preview-area">
+    <div class="preview-bar">
+      <span class="preview-lbl">미리보기</span>
+      <span class="preview-hint">저장 시 고화질 PNG로 출력됩니다</span>
+    </div>
+    <div class="preview-scroll">
+      <div class="card-canvas" id="card-canvas">
+        <div class="wm">@아이디는 지우지 마세요!</div>
+
+        <!-- 배너: overflow hidden을 card-top이 담당 -->
+        <div class="card-top">
+          <div class="card-banner" id="card-banner-wrap">
+            <img class="hidden" id="img-banner" alt=""/>
+            <div class="card-banner-ph" id="ph-banner">배너 이미지를 업로드하세요</div>
+            <div class="drag-hint">드래그로 위치 · 휠로 확대/축소</div>
+          </div>
+        </div>
+
+        <!-- 트위터 스타일: 프로필 원이 배너와 겹쳐서 위로 튀어나옴 -->
+        <div class="card-header">
+          <div class="header-row">
+            <div class="prof-circle" id="prof-circle-wrap">
+              <img class="hidden" id="img-profile" alt=""/>
+              <div class="prof-circle-ph" id="ph-profile">프로필</div>
+              <div class="prof-drag-hint">드래그·휠</div>
+            </div>
+            <div class="header-info">
+              <div class="nick-pill nick-style-filled" id="disp-nick">닉네임</div>
+              <div class="header-meta" id="disp-header-meta"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 스티커 레이어 -->
+        <div class="sticker-layer" id="sticker-layer"></div>
+
+        <div class="card-body">
+          <div class="card-left">
+            <!-- 태그 행 -->
+            <div class="tag-row" id="card-tag-row">
+              <span class="card-tag" style="color:#aaa;background:transparent;font-size:11px">태그를 추가해보세요</span>
+            </div>
+            <!-- 자유 기입 섹션들 -->
+            <div id="card-free-sections"></div>
+          </div>
+
+          <div class="card-right" id="card-right">
+            <!-- 동적 렌더 -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ════════ 편집 탭 전환 ════════ */
+document.querySelectorAll('.edit-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.edit-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.pane).classList.add('active');
+  });
+});
+
+/* ════════ 모바일 편집/미리보기 전환 ════════ */
+function switchMobTab(t) {
+  const ep=document.getElementById('editor-panel'), pa=document.getElementById('preview-area');
+  const te=document.getElementById('mob-tab-edit'), tp=document.getElementById('mob-tab-preview');
+  if(t==='edit'){ep.classList.remove('mob-hidden');pa.classList.add('mob-hidden');te.classList.add('active');tp.classList.remove('active');}
+  else{ep.classList.add('mob-hidden');pa.classList.remove('mob-hidden');te.classList.remove('active');tp.classList.add('active');}
+}
+
+/* ════════ 이미지 슬롯 관리 ════════ */
+let slotIdSeq = 0;
+const slots = [];
+let currentRatio = 75; // 기본 4:3
+
+function createSlot(label='', src='') { return { id: ++slotIdSeq, label, src }; }
+
+slots.push(createSlot(''));
+slots.push(createSlot(''));
+
+function renderEditorSlots() {
+  const list = document.getElementById('slot-list');
+  list.innerHTML = '';
+  slots.forEach((slot, idx) => {
+    const item = document.createElement('div');
+    item.className = 'img-slot-item';
+    item.innerHTML = `
+      <div class="slot-header">
+        <span class="slot-num">${idx + 1}</span>
+        <input class="slot-label-input" type="text" placeholder="라벨 (선택)" value="${slot.label}"
+          oninput="updateSlotLabel(${slot.id}, this.value)"/>
+        <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--muted);flex-shrink:0" title="라벨 색상">
+          글<input type="color" value="${slot.labelColor||'#888888'}"
+            style="width:20px;height:18px;border:none;background:none;cursor:pointer;padding:0"
+            onchange="updateSlotLabelColor(${slot.id}, this.value)"
+            oninput="updateSlotLabelColor(${slot.id}, this.value)"/>
+        </label>
+        <button class="slot-del-btn" title="제거" onclick="removeSlot(${slot.id})">×</button>
+      </div>
+      <div class="slot-upload" id="sup-${slot.id}">
+        <input type="file" accept="image/*" onchange="handleSlotFile(${slot.id}, this.files[0])"/>
+        ${slot.src
+          ? `<img class="slot-thumb" src="${slot.src}"/><span class="slot-filename">이미지 등록됨</span>`
+          : `<span class="slot-upload-hint">클릭 또는 드래그</span>`}
+      </div>
+    `;
+    const upDiv = item.querySelector('.slot-upload');
+    upDiv.addEventListener('dragover', e => { e.preventDefault(); upDiv.style.background='#e8e6e0'; });
+    upDiv.addEventListener('dragleave', () => { upDiv.style.background=''; });
+    upDiv.addEventListener('drop', e => { e.preventDefault(); upDiv.style.background=''; handleSlotFile(slot.id, e.dataTransfer.files[0]); });
+    list.appendChild(item);
+  });
+  renderCardSlots();
+}
+
+function slotHeight() {
+  /* currentRatio: 75=4:3, 100=1:1, 133=3:4, 56=16:9 → px 환산 (width≈196px 기준) */
+  const w = parseInt(document.getElementById('card-right').style.width) || 220;
+  return Math.round(w * currentRatio / 100);
+}
+
+function renderCardSlots() {
+  const right = document.getElementById('card-right');
+  right.innerHTML = '';
+  slots.forEach(slot => {
+    if (!slot.imgPos) slot.imgPos = { x:50, y:50 };
+    if (!slot.scale)  slot.scale  = 1.0;
+
+    const h = slotHeight();
+    const wrap = document.createElement('div');
+    wrap.dataset.slotId = slot.id;
+    wrap.innerHTML = `
+      <div class="card-img-slot" style="height:${h}px" data-slot-id="${slot.id}">
+        ${slot.src
+          ? `<img src="${slot.src}" alt="${slot.label}"
+               style="object-position:${slot.imgPos.x}% ${slot.imgPos.y}%;transform:scale(${slot.scale});transform-origin:${slot.imgPos.x}% ${slot.imgPos.y}%"
+               draggable="false"/>`
+          : `<div class="card-img-slot-ph">${slot.label || '이미지를 업로드하세요'}</div>`}
+        ${slot.src ? '<div class="drag-hint">드래그로 위치 · 휠로 확대/축소</div>' : ''}
+      </div>
+      <div class="card-img-label" style="color:${slot.labelColor||'var(--txt2)'}">${slot.label}</div>
+    `;
+    right.appendChild(wrap);
+  });
+  attachImgDrag();
+}
+
+function updateSlotLabel(id, val) {
+  const s = slots.find(s => s.id === id);
+  if (s) { s.label = val; renderCardSlots(); }
+}
+function updateSlotLabelColor(id, val) {
+  const s = slots.find(s => s.id === id);
+  if (s) { s.labelColor = val; renderCardSlots(); }
+}
+function removeSlot(id) {
+  const idx = slots.findIndex(s => s.id === id);
+  if (idx !== -1) { slots.splice(idx, 1); renderEditorSlots(); }
+}
+function handleSlotFile(id, file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const r = new FileReader();
+  r.onload = e => {
+    const s = slots.find(s => s.id === id);
+    if (s) { s.src = e.target.result; renderEditorSlots(); }
+  };
+  r.readAsDataURL(file);
+}
+
+document.getElementById('btn-add-slot').addEventListener('click', () => {
+  slots.push(createSlot('이미지 ' + (slots.length + 1)));
+  renderEditorSlots();
+});
+
+/* ════════ 배너 이미지 ════════ */
+const bannerState = { x: 50, y: 50, scale: 1.0 };
+
+function applyBannerTransform() {
+  const img = document.getElementById('img-banner');
+  if (!img || img.classList.contains('hidden')) return;
+  img.style.objectPosition = `${bannerState.x}% ${bannerState.y}%`;
+  img.style.transform = `scale(${bannerState.scale})`;
+  img.style.transformOrigin = `${bannerState.x}% ${bannerState.y}%`;
+}
+
+function attachBannerDrag() {
+  const img = document.getElementById('img-banner');
+  if (!img) return;
+  let drag = null;
+
+  img.addEventListener('mousedown', e => {
+    e.preventDefault();
+    drag = { startX: e.clientX, startY: e.clientY, startPx: bannerState.x, startPy: bannerState.y };
+    img.classList.add('dragging');
+  });
+
+  img.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    bannerState.scale = Math.max(0.5, Math.min(4.0, bannerState.scale + delta));
+    applyBannerTransform();
+  }, { passive: false });
+
+  img.addEventListener('touchstart', e => {
+    drag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startPx: bannerState.x, startPy: bannerState.y };
+  }, { passive: true });
+
+  function onMove(cx, cy) {
+    if (!drag) return;
+    const wrap = document.getElementById('card-banner-wrap');
+    const sensitivity = 40;
+    bannerState.x = Math.max(0, Math.min(100, drag.startPx - (cx - drag.startX) / sensitivity));
+    bannerState.y = Math.max(0, Math.min(100, drag.startPy - (cy - drag.startY) / sensitivity));
+    applyBannerTransform();
+  }
+
+  document.addEventListener('mousemove', e => { if (drag) onMove(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', () => { if (drag) { img.classList.remove('dragging'); drag = null; } });
+  document.addEventListener('touchmove', e => { if (drag) onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+  document.addEventListener('touchend', () => { drag = null; });
+}
+
+(function(){
+  const box = document.getElementById('up-banner');
+  const inp = box.querySelector('input');
+  function handle(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const r = new FileReader();
+    r.onload = e => {
+      const src = e.target.result;
+      const imgEl = document.getElementById('img-banner');
+      imgEl.src = src; imgEl.classList.remove('hidden');
+      document.getElementById('ph-banner').classList.add('hidden');
+      box.classList.add('has-img');
+      let th = box.querySelector('.prof-thumb');
+      if (!th) { th = document.createElement('img'); th.className='prof-thumb'; th.style.borderRadius='4px'; box.querySelector('.upload-hint-txt').style.display='none'; box.appendChild(th); }
+      th.src = src;
+      /* 업로드 후 드래그/줌 바인딩 */
+      attachBannerDrag();
+      applyBannerTransform();
+    };
+    r.readAsDataURL(file);
+  }
+  inp.addEventListener('change', e => handle(e.target.files[0]));
+  box.addEventListener('dragover', e => { e.preventDefault(); box.style.borderColor='var(--acc)'; });
+  box.addEventListener('dragleave', () => { box.style.borderColor=''; });
+  box.addEventListener('drop', e => { e.preventDefault(); box.style.borderColor=''; handle(e.dataTransfer.files[0]); });
+})();
+
+/* ════════ 프로필 이미지 ════════ */
+const profileState = { x: 50, y: 50, scale: 1.0 };
+
+function applyProfileTransform() {
+  const img = document.getElementById('img-profile');
+  if (!img || img.classList.contains('hidden')) return;
+  img.style.objectPosition = `${profileState.x}% ${profileState.y}%`;
+  img.style.transform = `scale(${profileState.scale})`;
+  img.style.transformOrigin = `${profileState.x}% ${profileState.y}%`;
+}
+
+function attachProfileDrag() {
+  const img = document.getElementById('img-profile');
+  if (!img) return;
+  let drag = null;
+
+  img.addEventListener('mousedown', e => {
+    e.preventDefault();
+    drag = { startX: e.clientX, startY: e.clientY, startPx: profileState.x, startPy: profileState.y };
+    img.classList.add('dragging');
+  });
+
+  img.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.08 : 0.08;
+    profileState.scale = Math.max(0.5, Math.min(5.0, profileState.scale + delta));
+    applyProfileTransform();
+  }, { passive: false });
+
+  img.addEventListener('touchstart', e => {
+    drag = { startX: e.touches[0].clientX, startY: e.touches[0].clientY, startPx: profileState.x, startPy: profileState.y };
+  }, { passive: true });
+
+  function onMove(cx, cy) {
+    if (!drag) return;
+    const sensitivity = 20;
+    profileState.x = Math.max(0, Math.min(100, drag.startPx - (cx - drag.startCx) / sensitivity));
+    profileState.y = Math.max(0, Math.min(100, drag.startPy - (cy - drag.startCy) / sensitivity));
+    applyProfileTransform();
+  }
+
+  // startCx/Cy 수정
+  img.addEventListener('mousedown', e => {
+    drag = { startCx: e.clientX, startCy: e.clientY, startPx: profileState.x, startPy: profileState.y };
+  });
+  img.addEventListener('touchstart', e => {
+    drag = { startCx: e.touches[0].clientX, startCy: e.touches[0].clientY, startPx: profileState.x, startPy: profileState.y };
+  }, { passive: true });
+
+  document.addEventListener('mousemove', e => { if (drag) onMove(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', () => { if (drag) { img.classList.remove('dragging'); drag = null; } });
+  document.addEventListener('touchmove', e => { if (drag) onMove(e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+  document.addEventListener('touchend', () => { drag = null; });
+}
+
+(function(){
+  const box = document.getElementById('up-profile');
+  const inp = box.querySelector('input');
+  function handle(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const r = new FileReader();
+    r.onload = e => {
+      const src = e.target.result;
+      const img = document.getElementById('img-profile');
+      img.src = src;
+      img.classList.remove('hidden');
+      document.getElementById('ph-profile').classList.add('hidden');
+      box.classList.add('has-img');
+      let th = box.querySelector('.prof-thumb');
+      if (!th) { th = document.createElement('img'); th.className = 'prof-thumb'; box.querySelector('.upload-hint-txt').style.display='none'; box.appendChild(th); }
+      th.src = src;
+      attachProfileDrag();
+      applyProfileTransform();
+    };
+    r.readAsDataURL(file);
+  }
+  inp.addEventListener('change', e => handle(e.target.files[0]));
+  box.addEventListener('dragover', e => { e.preventDefault(); box.style.borderColor='var(--acc)'; });
+  box.addEventListener('dragleave', () => { box.style.borderColor=''; });
+  box.addEventListener('drop', e => { e.preventDefault(); box.style.borderColor=''; handle(e.dataTransfer.files[0]); });
+})();
+
+/* ════════ 텍스트 바인딩 ════════ */
+[
+  ['in-nick','disp-nick','닉네임'],
+
+].forEach(([iid,did,fb])=>{
+  const i=document.getElementById(iid), d=document.getElementById(did);
+  if(!i||!d) return;
+  i.addEventListener('input', () => { d.textContent = i.value.trim() || (fb||''); });
+});
+
+let metaColor = '#666666';
+
+function renderHeaderMeta() {
+  const el = document.getElementById('disp-header-meta');
+  const val = document.getElementById('in-header-meta').value;
+  el.innerHTML = '';
+  val.split('\n').map(l=>l.trim()).filter(Boolean).forEach(l => {
+    const d = document.createElement('div');
+    d.className = 'header-meta-line';
+    d.style.color = metaColor;
+    d.textContent = l;
+    el.appendChild(d);
+  });
+}
+
+document.getElementById('in-header-meta').addEventListener('input', renderHeaderMeta);
+document.getElementById('meta-color-picker').addEventListener('input', function() {
+  metaColor = this.value; renderHeaderMeta();
+});
+
+/* ════════ 태그 시스템 ════════ */
+let tagIdSeq = 0;
+const tags = [];
+
+function createTag(text='', color='#6c85c2', textColor='#444444') {
+  return { id: ++tagIdSeq, text, color, textColor };
+}
+
+function renderTagBuilder() {
+  const list = document.getElementById('tag-builder-list');
+  list.innerHTML = '';
+  tags.forEach(tag => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:6px 8px;background:#f7f6f3;border-radius:8px;border:1px solid var(--bdr)';
+    row.innerHTML = `
+      <input type="color" value="${tag.color}"
+        style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:50%;flex-shrink:0"
+        title="점 색상"/>
+      <input type="text" value="${tag.text}" placeholder="태그 텍스트"
+        style="flex:1;border:none;background:transparent;font-size:13px;font-family:inherit;color:var(--txt);outline:none;min-width:0"
+        maxlength="20"/>
+      <label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);flex-shrink:0">
+        글<input type="color" value="${tag.textColor||'#444444'}"
+          style="width:22px;height:22px;border:none;background:none;cursor:pointer;padding:0;border-radius:3px"
+          title="글자 색상"/>
+      </label>
+      <button title="삭제"
+        style="background:none;border:none;cursor:pointer;color:#bbb;font-size:16px;line-height:1;padding:0 2px;flex-shrink:0">×</button>
+    `;
+    const colorInp    = row.querySelectorAll('input[type=color]')[0];
+    const textColorInp= row.querySelectorAll('input[type=color]')[1];
+    const textInp     = row.querySelector('input[type=text]');
+    const delBtn      = row.querySelector('button');
+
+    colorInp.addEventListener('input',     e => { tag.color     = e.target.value; renderCardTags(); });
+    textColorInp.addEventListener('input', e => { tag.textColor = e.target.value; renderCardTags(); });
+    textInp.addEventListener('input',      e => { tag.text      = e.target.value; renderCardTags(); });
+    delBtn.addEventListener('click', () => {
+      tags.splice(tags.findIndex(t => t.id === tag.id), 1);
+      renderTagBuilder();
+    });
+    list.appendChild(row);
+  });
+  renderCardTags();
+}
+
+function renderCardTags() {
+  const row = document.getElementById('card-tag-row');
+  row.innerHTML = '';
+  if (!tags.length) {
+    row.innerHTML = '<span style="font-size:11px;color:#bbb">태그를 추가해보세요</span>';
+    return;
+  }
+  tags.forEach(tag => {
+    if (!tag.text.trim()) return;
+    const el = document.createElement('span');
+    el.className = 'card-tag';
+    el.style.color = tag.textColor || '#444444';
+    el.innerHTML = `<span class="card-tag-dot" style="background:${tag.color}"></span><span class="card-tag-text">${tag.text}</span>`;
+    row.appendChild(el);
+  });
+}
+
+document.getElementById('btn-add-tag').addEventListener('click', () => {
+  const colors = ['#6c85c2','#c4527a','#3a8a6e','#a06840','#7a5a9a','#3a8aaa'];
+  tags.push(createTag('', colors[tags.length % colors.length]));
+  renderTagBuilder();
+});
+
+/* ════════ 자유 기입 섹션 시스템 ════════ */
+let freeIdSeq = 0;
+const freeSections = [];
+
+function createFreeSection(title='', body='', titleColor='#999999', bodyColor='#555555') {
+  return { id: ++freeIdSeq, title, body, titleColor, bodyColor };
+}
+
+function renderFreeBuilder() {
+  const list = document.getElementById('free-builder-list');
+  list.innerHTML = '';
+  freeSections.forEach((sec, idx) => {
+    const item = document.createElement('div');
+    item.style.cssText = 'border:1px solid var(--bdr);border-radius:8px;overflow:hidden;background:#fafaf8';
+    item.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px;padding:7px 10px;background:#f5f4f0;border-bottom:1px solid var(--bdr)">
+        <span style="font-size:11px;font-weight:700;color:var(--muted);background:#e8e7e2;border-radius:4px;padding:1px 7px;flex-shrink:0">${idx+1}</span>
+        <input type="text" value="${sec.title}" placeholder="제목"
+          style="flex:1;border:none;background:transparent;font-size:12px;font-family:inherit;color:var(--txt);outline:none;min-width:0"/>
+        <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--muted);flex-shrink:0">
+          제목<input type="color" value="${sec.titleColor||'#999999'}"
+            style="width:20px;height:18px;border:none;background:none;cursor:pointer;padding:0" title="제목 색상"/>
+        </label>
+        <label style="display:flex;align-items:center;gap:2px;font-size:10px;color:var(--muted);flex-shrink:0">
+          본문<input type="color" value="${sec.bodyColor||'#555555'}"
+            style="width:20px;height:18px;border:none;background:none;cursor:pointer;padding:0" title="본문 색상"/>
+        </label>
+        <button title="삭제"
+          style="background:none;border:none;cursor:pointer;color:#bbb;font-size:17px;line-height:1;padding:0 2px;flex-shrink:0;transition:color .15s"
+          onmouseover="this.style.color='#c0392b'" onmouseout="this.style.color='#bbb'">×</button>
+      </div>
+      <textarea rows="4" placeholder="내용을 자유롭게 작성해주세요"
+        style="width:100%;padding:10px 12px;border:none;background:transparent;font-size:13px;font-family:inherit;color:var(--txt);outline:none;resize:vertical;line-height:1.65">${sec.body}</textarea>
+    `;
+    const titleInp      = item.querySelector('input[type=text]');
+    const bodyTA        = item.querySelector('textarea');
+    const delBtn        = item.querySelector('button');
+    const titleColorInp = item.querySelectorAll('input[type=color]')[0];
+    const bodyColorInp  = item.querySelectorAll('input[type=color]')[1];
+
+    titleInp.addEventListener('input',      e => { sec.title      = e.target.value; renderCardFreeSections(); });
+    bodyTA.addEventListener('input',        e => { sec.body       = e.target.value; renderCardFreeSections(); });
+    titleColorInp.addEventListener('input', e => { sec.titleColor = e.target.value; renderCardFreeSections(); });
+    bodyColorInp.addEventListener('input',  e => { sec.bodyColor  = e.target.value; renderCardFreeSections(); });
+    delBtn.addEventListener('click', () => {
+      freeSections.splice(freeSections.findIndex(s => s.id === sec.id), 1);
+      renderFreeBuilder();
+    });
+    list.appendChild(item);
+  });
+  renderCardFreeSections();
+}
+
+function renderCardFreeSections() {
+  const container = document.getElementById('card-free-sections');
+  container.innerHTML = '';
+  freeSections.forEach(sec => {
+    const div = document.createElement('div');
+    div.className = 'free-section';
+    div.innerHTML = `
+      <div class="free-title" style="color:${sec.titleColor||'#999999'}">${sec.title || 'FREE'}</div>
+      <div class="free-box" style="color:${sec.bodyColor||'#555555'};white-space:pre-wrap">${sec.body || ''}</div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+document.getElementById('btn-add-free').addEventListener('click', () => {
+  freeSections.push(createFreeSection('FREE', ''));
+  renderFreeBuilder();
+});
+
+/* 기본 섹션 1개 */
+freeSections.push(createFreeSection('FREE', ''));
+
+/* ════════ 테마 프리셋 ════════ */
+// 각 테마의 기본 색상값
+const themePresets = {
+  default: { cardBg:'#eef0f8', headerBg:'#dde0f0', nickBg:'#6c85c2', sep:'#c8ccd8', txt:'#1a1a1a', txt2:'#666666' },
+  pink:    { cardBg:'#f5eef2', headerBg:'#ead8e5', nickBg:'#c4527a', sep:'#d8b8ca', txt:'#1a1a1a', txt2:'#666666' },
+  mint:    { cardBg:'#eef5f2', headerBg:'#d5eae3', nickBg:'#3a8a6e', sep:'#b0d5c5', txt:'#1a1a1a', txt2:'#666666' },
+  warm:    { cardBg:'#f5f0ea', headerBg:'#e8ddd0', nickBg:'#a06840', sep:'#d0b898', txt:'#1a1a1a', txt2:'#666666' },
+  dark:    { cardBg:'#2a2d36', headerBg:'#1e2028', nickBg:'#4a5570', sep:'#3a3f50', txt:'#e8e8e8', txt2:'#aaaaaa' },
+  custom:  null,
+};
+
+function applyCardColors(colors) {
+  const card = document.getElementById('card-canvas');
+  card.style.setProperty('--card-bg',    colors.cardBg);
+  card.style.setProperty('--header-bg',  colors.headerBg);
+  card.style.setProperty('--nick-bg',    colors.nickBg);
+  card.style.setProperty('--sep',        colors.sep);
+  card.style.setProperty('--txt',        colors.txt);
+  card.style.setProperty('--txt2',       colors.txt2);
+  // 피커값 업데이트
+  document.getElementById('cc-card-bg').value   = colors.cardBg;
+  document.getElementById('cc-header-bg').value  = colors.headerBg;
+  document.getElementById('cc-nick-bg').value    = colors.nickBg;
+  document.getElementById('cc-sep').value        = colors.sep;
+  document.getElementById('cc-txt').value        = colors.txt;
+  document.getElementById('cc-txt2').value       = colors.txt2;
+  document.getElementById('cc-card-bg-val').textContent   = colors.cardBg;
+  document.getElementById('cc-header-bg-val').textContent  = colors.headerBg;
+  document.getElementById('cc-nick-bg-val').textContent    = colors.nickBg;
+  document.getElementById('cc-sep-val').textContent        = colors.sep;
+  document.getElementById('cc-txt-val').textContent        = colors.txt;
+  document.getElementById('cc-txt2-val').textContent       = colors.txt2;
+  // 프로필 테두리도 card-bg에 맞춤
+  document.querySelector('.prof-circle').style.borderColor = colors.cardBg;
+  // nick-pill 색도 동기화
+  applyNickStyle();
+}
+
+document.querySelectorAll('.theme-swatch').forEach(sw => {
+  sw.addEventListener('click', () => {
+    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+    sw.classList.add('active');
+    const theme = sw.dataset.theme;
+    document.body.dataset.theme = (theme === 'custom') ? '' : theme;
+    if (theme !== 'custom' && themePresets[theme]) {
+      applyCardColors(themePresets[theme]);
+    }
+    // custom은 현재 피커값 유지
+  });
+});
+
+/* ════════ 커스텀 색상 피커 ════════ */
+const ccMap = [
+  ['cc-card-bg',   '--card-bg',   'cc-card-bg-val'],
+  ['cc-header-bg', '--header-bg', 'cc-header-bg-val'],
+  ['cc-nick-bg',   '--nick-bg',   'cc-nick-bg-val'],
+  ['cc-sep',       '--sep',       'cc-sep-val'],
+  ['cc-txt',       '--txt',       'cc-txt-val'],
+  ['cc-txt2',      '--txt2',      'cc-txt2-val'],
+];
+ccMap.forEach(([pickerId, cssVar, valId]) => {
+  const picker = document.getElementById(pickerId);
+  const valEl  = document.getElementById(valId);
+  picker.addEventListener('input', () => {
+    const v = picker.value;
+    valEl.textContent = v;
+    document.getElementById('card-canvas').style.setProperty(cssVar, v);
+    // custom 스와치 활성화
+    document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
+    document.querySelector('[data-theme=custom]').classList.add('active');
+    document.body.dataset.theme = '';
+    // nick-bg 바뀌면 pill 색도 동기화
+    if (cssVar === '--nick-bg') applyNickStyle();
+    // card-bg 바뀌면 프로필 테두리도 동기화
+    if (cssVar === '--card-bg') document.querySelector('.prof-circle').style.borderColor = v;
+  });
+});
+
+/* ════════ 디자인: 배너 높이 슬라이더 ════════ */
+const rangeH = document.getElementById('range-banner-h');
+const rangeHVal = document.getElementById('range-banner-h-val');
+rangeH.addEventListener('input', () => {
+  const v = rangeH.value;
+  rangeHVal.textContent = v + 'px';
+  document.querySelector('.card-banner').style.height = v + 'px';
+});
+
+/* ════════ 디자인: 이미지 너비 슬라이더 ════════ */
+const rangeW = document.getElementById('range-imgwidth');
+const rangeWVal = document.getElementById('range-imgwidth-val');
+rangeW.addEventListener('input', () => {
+  const v = rangeW.value;
+  rangeWVal.textContent = v + 'px';
+  document.getElementById('card-right').style.width = v + 'px';
+});
+
+/* ════════ 디자인: 이미지 비율 버튼 ════════ */
+const ratioBtns = document.querySelectorAll('.ratio-btn');
+ratioBtns.forEach(btn => {
+  btn.style.cssText='padding:5px 12px;border-radius:6px;border:1px solid var(--bdr);background:#f5f4f1;font-size:12px;font-family:inherit;cursor:pointer;transition:.15s';
+  btn.addEventListener('click', () => {
+    ratioBtns.forEach(b=>{ b.style.background='#f5f4f1'; b.style.borderColor='var(--bdr)'; b.style.color=''; });
+    btn.style.background='var(--acc)'; btn.style.borderColor='var(--acc)'; btn.style.color='#fff';
+    currentRatio = parseInt(btn.dataset.ratio);
+    renderCardSlots();
+  });
+});
+
+/* ════════ 초기화 & 저장 ════════ */
+document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('모든 내용을 초기화할까요?'))location.reload();});
+
+document.getElementById('btn-download').addEventListener('click', async () => {
+  if(window.innerWidth<=768) switchMobTab('preview');
+  const btn=document.getElementById('btn-download');
+  btn.textContent='저장 중...'; btn.disabled=true;
+  try {
+    const canvas=await html2canvas(document.getElementById('card-canvas'),{scale:2,useCORS:true,allowTaint:true,logging:false});
+    const a=document.createElement('a'); a.download='소개카드.png'; a.href=canvas.toDataURL('image/png'); a.click();
+  } catch(e){ alert('저장에 실패했습니다.'); console.error(e); }
+  finally{ btn.textContent='이미지 저장 ↓'; btn.disabled=false; }
+});
+
+/* ════════ 닉네임 스타일 & 색상 ════════ */
+let currentNickStyle = 'filled';
+let currentNickColor = '#6c85c2';
+
+function applyNickStyle() {
+  const el = document.getElementById('disp-nick');
+  el.className = 'nick-pill nick-style-' + currentNickStyle;
+  el.style.setProperty('--nick-color', currentNickColor);
+  if (currentNickStyle === 'filled') {
+    el.style.setProperty('--nick-text-color', '#fff');
+  }
+}
+
+document.querySelectorAll('.nick-style-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nick-style-btn').forEach(b => {
+      b.style.background = 'transparent';
+      b.style.borderColor = 'var(--bdr)';
+      b.style.color = 'var(--txt2)';
+    });
+    btn.style.background = 'var(--acc)';
+    btn.style.borderColor = 'var(--acc)';
+    btn.style.color = '#fff';
+    currentNickStyle = btn.dataset.style;
+    applyNickStyle();
+  });
+});
+
+document.getElementById('nick-color-picker').addEventListener('input', function() {
+  currentNickColor = this.value;
+  applyNickStyle();
+});
+
+/* ════════ 이미지 드래그 & 휠 줌 ════════ */
+let imgDrag = null;
+
+function attachImgDrag() {
+  document.querySelectorAll('.card-img-slot img').forEach(img => {
+    /* 해당 슬롯 찾기 */
+    function getSlot(el) {
+      const sid = el.closest('.card-img-slot').dataset.slotId;
+      return slots.find(s => String(s.id) === String(sid));
+    }
+    function applyTransform(slot, img) {
+      img.style.objectPosition = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
+      img.style.transform = `scale(${slot.scale})`;
+      img.style.transformOrigin = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
+    }
+
+    /* ── 마우스 드래그 ── */
+    img.addEventListener('mousedown', e => {
+      e.preventDefault();
+      const slot = getSlot(img);
+      if (!slot) return;
+      imgDrag = {
+        img, slot,
+        startX: e.clientX, startY: e.clientY,
+        startPx: slot.imgPos.x, startPy: slot.imgPos.y
+      };
+      img.classList.add('dragging');
+    });
+
+    /* ── 휠 줌 ── */
+    img.addEventListener('wheel', e => {
+      e.preventDefault();
+      const slot = getSlot(img);
+      if (!slot) return;
+      const delta = e.deltaY > 0 ? -0.05 : 0.05;
+      slot.scale = Math.max(0.5, Math.min(4.0, (slot.scale || 1) + delta));
+      applyTransform(slot, img);
+    }, { passive: false });
+
+    /* ── 터치 드래그 ── */
+    img.addEventListener('touchstart', e => {
+      const slot = getSlot(img);
+      if (!slot) return;
+      imgDrag = {
+        img, slot,
+        startX: e.touches[0].clientX, startY: e.touches[0].clientY,
+        startPx: slot.imgPos.x, startPy: slot.imgPos.y
+      };
+    }, { passive: true });
+  });
+}
+
+document.addEventListener('mousemove', e => {
+  if (!imgDrag) return;
+  const { img, slot, startX, startY, startPx, startPy } = imgDrag;
+  const wrap = img.closest('.card-img-slot');
+  const sensitivity = 30; /* 낮을수록 민감 */
+  const dx = (e.clientX - startX) / sensitivity;
+  const dy = (e.clientY - startY) / sensitivity;
+  slot.imgPos.x = Math.max(0, Math.min(100, startPx - dx));
+  slot.imgPos.y = Math.max(0, Math.min(100, startPy - dy));
+  img.style.objectPosition = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
+  img.style.transformOrigin = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
+});
+
+document.addEventListener('mouseup', () => {
+  if (imgDrag) { imgDrag.img.classList.remove('dragging'); imgDrag = null; }
+});
+
+document.addEventListener('touchmove', e => {
+  if (!imgDrag) return;
+  const { img, slot, startX, startY, startPx, startPy } = imgDrag;
+  const sensitivity = 30;
+  const dx = (e.touches[0].clientX - startX) / sensitivity;
+  const dy = (e.touches[0].clientY - startY) / sensitivity;
+  slot.imgPos.x = Math.max(0, Math.min(100, startPx - dx));
+  slot.imgPos.y = Math.max(0, Math.min(100, startPy - dy));
+  img.style.objectPosition = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
+  img.style.transformOrigin = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
+}, { passive: true });
+
+document.addEventListener('touchend', () => { imgDrag = null; });
+
+/* ════════════════════════════════
+   스티커 시스템
+════════════════════════════════ */
+let stickerIdSeq = 0;
+const stickerSrcs = [];   // 업로드된 스티커 원본 목록
+let activeStickerEl = null;
+
+/* 스티커 업로드 */
+(function(){
+  const box = document.getElementById('up-sticker');
+  const inp = box.querySelector('input');
+  function handleFiles(files) {
+    Array.from(files).forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const r = new FileReader();
+      r.onload = e => {
+        const src = e.target.result;
+        stickerSrcs.push(src);
+        renderStickerThumbs();
+        placeSticker(src);  /* 업로드하면 바로 카드에 배치 */
+      };
+      r.readAsDataURL(file);
+    });
+  }
+  inp.addEventListener('change', e => handleFiles(e.target.files));
+  box.addEventListener('dragover', e => { e.preventDefault(); box.style.borderColor='var(--acc)'; });
+  box.addEventListener('dragleave', () => { box.style.borderColor=''; });
+  box.addEventListener('drop', e => { e.preventDefault(); box.style.borderColor=''; handleFiles(e.dataTransfer.files); });
+})();
+
+/* 썸네일 목록 렌더 */
+function renderStickerThumbs() {
+  const list = document.getElementById('sticker-thumb-list');
+  list.innerHTML = '';
+  stickerSrcs.forEach((src, idx) => {
+    const item = document.createElement('div');
+    item.className = 'sticker-thumb-item';
+    item.title = '클릭하면 카드에 추가';
+    item.innerHTML = `<img src="${src}" /><button class="del-thumb" title="삭제">×</button>`;
+    item.querySelector('img').addEventListener('click', () => placeSticker(src));
+    item.querySelector('.del-thumb').addEventListener('click', e => {
+      e.stopPropagation();
+      stickerSrcs.splice(idx, 1);
+      renderStickerThumbs();
+    });
+    list.appendChild(item);
+  });
+}
+
+/* 카드에 스티커 배치 */
+function placeSticker(src) {
+  const layer = document.getElementById('sticker-layer');
+  const canvas = document.getElementById('card-canvas');
+  const cw = canvas.offsetWidth;
+  const ch = canvas.offsetHeight;
+
+  const id = ++stickerIdSeq;
+  const size = 80;
+  /* 랜덤 위치 (카드 안쪽) */
+  const x = Math.floor(Math.random() * (cw - size - 40) + 20);
+  const y = Math.floor(Math.random() * (ch - size - 40) + 20);
+
+  const el = document.createElement('div');
+  el.className = 'sticker';
+  el.dataset.id = id;
+  el.style.cssText = `left:${x}px;top:${y}px;width:${size}px;height:${size}px;transform:rotate(0deg)`;
+  el.innerHTML = `
+    <img class="sticker-img" src="${src}" draggable="false"/>
+    <div class="sticker-handle" title="크기 조절"></div>
+    <button class="sticker-del" title="삭제">×</button>
+    <div class="sticker-rot" title="회전">↻</div>
+  `;
+
+  /* 삭제 */
+  el.querySelector('.sticker-del').addEventListener('click', e => {
+    e.stopPropagation(); el.remove(); activeStickerEl = null;
+  });
+
+  /* 선택 */
+  el.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('sticker-handle') || e.target.classList.contains('sticker-rot')) return;
+    selectSticker(el);
+  });
+  el.addEventListener('touchstart', e => {
+    if (e.target.classList.contains('sticker-handle') || e.target.classList.contains('sticker-rot')) return;
+    selectSticker(el);
+  }, {passive:true});
+
+  attachStickerDrag(el);
+  attachStickerResize(el);
+  attachStickerRotate(el);
+
+  layer.appendChild(el);
+  selectSticker(el);
+}
+
+function selectSticker(el) {
+  if (activeStickerEl) activeStickerEl.classList.remove('selected');
+  activeStickerEl = el;
+  el.classList.add('selected');
+}
+
+/* 카드 외부 클릭 시 선택 해제 */
+document.addEventListener('mousedown', e => {
+  if (activeStickerEl && !e.target.closest('.sticker')) {
+    activeStickerEl.classList.remove('selected');
+    activeStickerEl = null;
+  }
+});
+
+/* ── 스티커 이동 드래그 ── */
+function attachStickerDrag(el) {
+  let drag = null;
+  function start(cx, cy) {
+    selectSticker(el);
+    drag = {
+      startCx: cx, startCy: cy,
+      startX: parseInt(el.style.left)||0,
+      startY: parseInt(el.style.top)||0
+    };
+  }
+  function move(cx, cy) {
+    if (!drag) return;
+    const canvas = document.getElementById('card-canvas');
+    const rect = canvas.getBoundingClientRect();
+    const nx = drag.startX + (cx - drag.startCx);
+    const ny = drag.startY + (cy - drag.startCy);
+    el.style.left = Math.max(-20, Math.min(canvas.offsetWidth - 20, nx)) + 'px';
+    el.style.top  = Math.max(-20, Math.min(canvas.offsetHeight - 20, ny)) + 'px';
+  }
+  el.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('sticker-handle') || e.target.classList.contains('sticker-rot') || e.target.classList.contains('sticker-del')) return;
+    e.stopPropagation(); start(e.clientX, e.clientY);
+  });
+  document.addEventListener('mousemove', e => move(e.clientX, e.clientY));
+  document.addEventListener('mouseup', () => { drag = null; });
+  el.addEventListener('touchstart', e => {
+    if (e.target.classList.contains('sticker-handle') || e.target.classList.contains('sticker-rot')) return;
+    start(e.touches[0].clientX, e.touches[0].clientY);
+  }, {passive:true});
+  document.addEventListener('touchmove', e => {
+    if (drag) move(e.touches[0].clientX, e.touches[0].clientY);
+  }, {passive:true});
+  document.addEventListener('touchend', () => { drag = null; });
+}
+
+/* ── 스티커 리사이즈 ── */
+function attachStickerResize(el) {
+  const handle = el.querySelector('.sticker-handle');
+  let resize = null;
+  handle.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    resize = { startCx: e.clientX, startCy: e.clientY, startW: el.offsetWidth, startH: el.offsetHeight };
+  });
+  document.addEventListener('mousemove', e => {
+    if (!resize) return;
+    const dw = e.clientX - resize.startCx;
+    const dh = e.clientY - resize.startCy;
+    const d = (dw + dh) / 2;
+    const nw = Math.max(20, resize.startW + d);
+    const nh = Math.max(20, resize.startH + d);
+    el.style.width  = nw + 'px';
+    el.style.height = nh + 'px';
+  });
+  document.addEventListener('mouseup', () => { resize = null; });
+}
+
+/* ── 스티커 회전 ── */
+function attachStickerRotate(el) {
+  const rotHandle = el.querySelector('.sticker-rot');
+  let rot = null;
+  function getAngle(cx, cy) {
+    const rect = el.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top  + rect.height / 2;
+    return Math.atan2(cy - centerY, cx - centerX) * 180 / Math.PI;
+  }
+  rotHandle.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    const curRot = parseFloat((el.style.transform.match(/rotate\(([^)]+)deg\)/) || ['','0'])[1]);
+    rot = { startAngle: getAngle(e.clientX, e.clientY), startRot: curRot };
+    rotHandle.style.cursor = 'grabbing';
+  });
+  document.addEventListener('mousemove', e => {
+    if (!rot) return;
+    const angle = getAngle(e.clientX, e.clientY);
+    const newRot = rot.startRot + (angle - rot.startAngle);
+    el.style.transform = `rotate(${newRot}deg)`;
+  });
+  document.addEventListener('mouseup', () => { if (rot) { rot = null; rotHandle.style.cursor = 'grab'; } });
+}
+
+/* ════════ 초기 렌더 ════════ */
+renderEditorSlots();
+renderFreeBuilder();
+</script>
+</body>
+</html>
