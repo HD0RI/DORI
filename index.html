@@ -298,9 +298,10 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
 /* ══ 스티커 ══ */
 .sticker-layer{
   position:absolute;inset:0;
-  pointer-events:none;   /* 기본은 통과 — 스티커만 events 받음 */
+  pointer-events:none;
   z-index:50;
   overflow:hidden;
+  background:transparent !important;
 }
 .sticker{
   position:absolute;
@@ -1371,13 +1372,25 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   try {
     /* scale:1로 캡처 후 Canvas API로 2배 확대
        → html2canvas scale:2가 px값 2배로 잡는 문제 완전 해결 */
+    const cardW = cardEl.offsetWidth;
+    const cardH = cardEl.offsetHeight;
+    /* card-canvas의 배경색 읽기 */
+    const cardBgColor = getComputedStyle(cardEl)
+      .getPropertyValue('--card-bg').trim() || '#ffffff';
+
     const result = await html2canvas(cardEl, {
       scale: 1,
       useCORS: true,
       allowTaint: true,
-      backgroundColor: null,
+      backgroundColor: cardBgColor,
       logging: false,
       imageTimeout: 0,
+      width:  cardW,
+      height: cardH,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
     });
 
     /* 2배 확대 Canvas 생성 */
