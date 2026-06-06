@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/dom-to-image-more@3.4.0/dist/dom-to-image-more.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1239,30 +1239,36 @@ ratioBtns.forEach(btn => {
 /* ════════ 초기화 & 저장 ════════ */
 document.getElementById('btn-reset').addEventListener('click',()=>{if(confirm('모든 내용을 초기화할까요?'))location.reload();});
 
-/* ── object-fit:cover + scale 이미지를 canvas data URL로 변환 ── */
-function imgToCanvasUrl(img, wrapW, wrapH) {
+/* ── cover+scale 이미지를 슬롯 크기 canvas로 변환 ── */
+function renderImgToCanvas(img, wrapW, wrapH) {
+  const DPR = 2;
   const c = document.createElement('canvas');
-  c.width  = wrapW;
-  c.height = wrapH;
+  c.width  = wrapW * DPR;
+  c.height = wrapH * DPR;
   const ctx = c.getContext('2d');
+  ctx.scale(DPR, DPR);
 
   const scaleMatch = (img.style.transform || '').match(/scale\(([^)]+)\)/);
-  const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
-  const [px, py] = (img.style.objectPosition || '50% 50%')
-    .split(' ').map(v => parseFloat(v) / 100);
+  const userScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
 
-  const natW = img.naturalWidth;
-  const natH = img.naturalHeight;
+  const posParts = (img.style.objectPosition || '50% 50%').split(' ');
+  const px = parseFloat(posParts[0]) / 100;
+  const py = parseFloat(posParts[1] || posParts[0]) / 100;
 
-  /* cover 계산: 슬롯을 꽉 채우는 최소 배율 */
-  const coverRatio = Math.max(wrapW / natW, wrapH / natH) * scale;
-  const drawW = natW * coverRatio;
-  const drawH = natH * coverRatio;
-  const ox = (wrapW - drawW) * px;
-  const oy = (wrapH - drawH) * py;
+  const nw = img.naturalWidth;
+  const nh = img.naturalHeight;
+  if (!nw || !nh) return null;
 
-  ctx.drawImage(img, ox, oy, drawW, drawH);
-  return c.toDataURL('image/png');
+  /* cover: 슬롯을 꽉 채우는 최소 배율 × 사용자 확대값 */
+  const base = Math.max(wrapW / nw, wrapH / nh);
+  const ratio = base * userScale;
+  const dw = nw * ratio;
+  const dh = nh * ratio;
+  const ox = (wrapW - dw) * px;
+  const oy = (wrapH - dh) * py;
+
+  ctx.drawImage(img, ox, oy, dw, dh);
+  return c;
 }
 
 document.getElementById('btn-download').addEventListener('click', async () => {
@@ -1271,73 +1277,63 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   btn.textContent = '저장 중...'; btn.disabled = true;
 
   const cardEl = document.getElementById('card-canvas');
-  const SCALE = 3; /* 저장 해상도 배율 */
-  const W = cardEl.offsetWidth;
-  const H = cardEl.offsetHeight;
-
-  /* 스티커 선택 해제 */
   const wasSelected = activeStickerEl;
   if (activeStickerEl) activeStickerEl.classList.remove('selected');
 
-  /* 저장 전: img 태그를 canvas DataURL img로 교체 (object-fit/scale 직접 계산) */
+  /* 저장 전: object-fit img → canvas-rendered img に差し替え */
   const swaps = [];
   cardEl.querySelectorAll('img').forEach(img => {
     if (img.classList.contains('hidden') || img.classList.contains('sticker-img')) return;
-    const wrap = img.parentElement;
-    const wW = wrap.offsetWidth || img.offsetWidth;
-    const wH = wrap.offsetHeight || img.offsetHeight;
-    if (!img.naturalWidth || !wW || !wH) return;
+    if (!img.naturalWidth) return;
 
-    try {
-      const dataUrl = imgToCanvasUrl(img, wW, wH);
-      const fake = document.createElement('img');
-      fake.src = dataUrl;
-      fake.dataset.exportFake = '1';
-      fake.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:fill';
-      img.style.visibility = 'hidden';
-      wrap.appendChild(fake);
-      swaps.push({ img, fake });
-    } catch(e) { /* cross-origin 등 실패 시 그냥 스킵 */ }
+    const wrap = img.parentElement;
+    const wW = wrap.offsetWidth;
+    const wH = wrap.offsetHeight;
+    if (!wW || !wH) return;
+
+    const c = renderImgToCanvas(img, wW, wH);
+    if (!c) return;
+
+    const fake = new Image();
+    fake.src = c.toDataURL('image/png');
+    fake.style.cssText = `
+      position:absolute;
+      left:0;top:0;
+      width:${wW}px;height:${wH}px;
+      display:block;
+    `;
+    fake.dataset.isFake = '1';
+
+    img.style.visibility = 'hidden';
+    wrap.style.position = wrap.style.position || 'relative';
+    wrap.appendChild(fake);
+    swaps.push({ img, fake, wrap });
   });
 
-  /* 카드 width 고정 */
-  const origWidth = cardEl.style.width;
-  cardEl.style.width = W + 'px';
+  const origW = cardEl.style.width;
+  cardEl.style.width = cardEl.offsetWidth + 'px';
 
   try {
-    const dataUrl = await domtoimage.toPng(cardEl, {
-      width:  W * SCALE,
-      height: H * SCALE,
-      style: {
-        transform: `scale(${SCALE})`,
-        transformOrigin: 'top left',
-        width:  W + 'px',
-        height: H + 'px',
-      },
-      filter: node => {
-        if (!node.classList) return true;
-        if (node.classList.contains('hidden'))        return false;
-        if (node.classList.contains('drag-hint'))     return false;
-        if (node.classList.contains('prof-drag-hint'))return false;
-        if (node.classList.contains('sticker-handle'))return false;
-        if (node.classList.contains('sticker-del'))   return false;
-        if (node.classList.contains('sticker-rot'))   return false;
-        return true;
-      }
+    const result = await html2canvas(cardEl, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: null,
+      logging: false,
+      imageTimeout: 0,
     });
     const a = document.createElement('a');
     a.download = '소개카드.png';
-    a.href = dataUrl;
+    a.href = result.toDataURL('image/png');
     a.click();
   } catch(e) {
     alert('저장에 실패했습니다. 다시 시도해주세요.'); console.error(e);
   } finally {
-    /* 복원 */
     swaps.forEach(({ img, fake }) => {
       img.style.visibility = '';
       fake.remove();
     });
-    cardEl.style.width = origWidth;
+    cardEl.style.width = origW;
     if (wasSelected) wasSelected.classList.add('selected');
     btn.textContent = '이미지 저장 ↓'; btn.disabled = false;
   }
