@@ -1319,12 +1319,14 @@ document.getElementById('btn-download').addEventListener('click', async () => {
     const il = parseFloat(img.style.left)   || 0;
     const it = parseFloat(img.style.top)    || 0;
 
-    /* background-size: 컨테이너 % 기준 */
-    const bsw = (iw / cw * 100).toFixed(2) + '%';
-    const bsh = (ih / ch * 100).toFixed(2) + '%';
-    /* background-position: px → % (컨테이너-이미지 초과분 기준) */
-    const bpl = il.toFixed(2) + 'px';
-    const bpt = it.toFixed(2) + 'px';
+    /* background-size/position 모두 % 기준으로 통일 (scale 무관) */
+    const bsw = (iw / cw * 100).toFixed(4) + '%';
+    const bsh = (ih / ch * 100).toFixed(4) + '%';
+    /* position: il이 음수(이미지가 왼쪽으로 나감) → %로 변환
+       background-position % 기준: 0%=왼쪽정렬, 100%=오른쪽정렬
+       공식: pos% = il / (cw - iw) * 100  (iw > cw 일 때) */
+    const bplPct = iw <= cw ? '0%' : (il / (cw - iw) * 100).toFixed(4) + '%';
+    const bptPct = ih <= ch ? '0%' : (it / (ch - ih) * 100).toFixed(4) + '%';
 
     const div = document.createElement('div');
     div.dataset.bgReplace = '1';
@@ -1333,7 +1335,7 @@ document.getElementById('btn-download').addEventListener('click', async () => {
     div.style.backgroundImage  = `url("${img.src}")`;
     div.style.backgroundRepeat = 'no-repeat';
     div.style.backgroundSize   = `${bsw} ${bsh}`;
-    div.style.backgroundPosition = `${bpl} ${bpt}`;
+    div.style.backgroundPosition = `${bplPct} ${bptPct}`;
     div.style.pointerEvents    = 'none';
     div.style.zIndex           = '1';
     div.style.overflow         = 'hidden';
@@ -1367,17 +1369,29 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   stickerUIEls.forEach(el => { el.dataset.hiddenForExport = '1'; el.style.display = 'none'; });
 
   try {
+    /* scale:1로 캡처 후 Canvas API로 2배 확대
+       → html2canvas scale:2가 px값 2배로 잡는 문제 완전 해결 */
     const result = await html2canvas(cardEl, {
-      scale: 2,
+      scale: 1,
       useCORS: true,
       allowTaint: true,
       backgroundColor: null,
       logging: false,
       imageTimeout: 0,
     });
+
+    /* 2배 확대 Canvas 생성 */
+    const out = document.createElement('canvas');
+    out.width  = result.width  * 2;
+    out.height = result.height * 2;
+    const ctx = out.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(result, 0, 0, out.width, out.height);
+
     const a = document.createElement('a');
     a.download = '소개카드.png';
-    a.href = result.toDataURL('image/png');
+    a.href = out.toDataURL('image/png');
     a.click();
   } catch(e) {
     alert('저장에 실패했습니다. 다시 시도해주세요.'); console.error(e);
