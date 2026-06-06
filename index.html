@@ -142,12 +142,10 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
 }
 .card-banner img{
   position:absolute;
-  width:100%;height:100%;
-  left:0;top:0;
-  object-fit:cover;object-position:50% 50%;
   display:block;
   cursor:grab;
   user-select:none;-webkit-user-drag:none;
+  transform-origin:center center;
 }
 .card-banner img.dragging{cursor:grabbing}
 .card-banner-ph{
@@ -185,12 +183,11 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
   flex-shrink:0;
 }
 .prof-circle img{
-  width:100%;height:100%;
-  object-fit:cover;display:block;
-  object-position:50% 50%;
+  position:absolute;
+  display:block;
   cursor:grab;
   user-select:none;-webkit-user-drag:none;
-  transition:outline .1s;
+  transform-origin:center center;
 }
 .prof-circle img.dragging{cursor:grabbing}
 .prof-circle-ph{font-size:10px;color:rgba(255,255,255,.45);text-align:center;padding:8px;line-height:1.4}
@@ -270,15 +267,13 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
   height:160px;
 }
 .card-img-slot img{
-  position:absolute;inset:0;
-  width:100%;height:100%;
-  object-fit:cover;
-  object-position:50% 50%;
+  position:absolute;
   display:block;
   cursor:grab;
   user-select:none;
   -webkit-user-drag:none;
   pointer-events:auto;
+  transform-origin:center center;
 }
 .card-img-slot img.dragging{cursor:grabbing}
 .card-img-slot-ph{
@@ -760,7 +755,7 @@ function renderCardSlots() {
       <div class="card-img-slot" style="height:${h}px" data-slot-id="${slot.id}">
         ${slot.src
           ? `<img src="${slot.src}" alt="${slot.label}"
-               style="object-position:${slot.imgPos.x}% ${slot.imgPos.y}%;width:${(slot.scale||1)*100}%;height:${(slot.scale||1)*100}%;position:absolute;left:-${((slot.scale||1)*100-100)/2}%;top:-${((slot.scale||1)*100-100)/2}%"
+               style="position:absolute;left:0;top:0;width:100%;height:100%;object-position:${slot.imgPos.x}% ${slot.imgPos.y}%"
                draggable="false"/>`
           : `<div class="card-img-slot-ph">${slot.label || '이미지를 업로드하세요'}</div>`}
         ${slot.src ? '<div class="drag-hint">드래그로 위치 · 휠로 확대/축소</div>' : ''}
@@ -802,20 +797,28 @@ document.getElementById('btn-add-slot').addEventListener('click', () => {
 /* ════════ 배너 이미지 ════════ */
 const bannerState = { x: 50, y: 50, scale: 1.0 };
 
+/* ── 이미지를 컨테이너에 cover로 맞추는 함수 ── */
+function applyCover(img, containerW, containerH, posX, posY, userScale) {
+  if (!img.naturalWidth || !img.naturalHeight) return;
+  const nw = img.naturalWidth, nh = img.naturalHeight;
+  const coverRatio = Math.max(containerW / nw, containerH / nh) * userScale;
+  const drawW = nw * coverRatio;
+  const drawH = nh * coverRatio;
+  /* posX/posY: 0~100, 이미지의 어느 부분을 중앙에 놓을지 */
+  const offsetX = (containerW - drawW) * (posX / 100);
+  const offsetY = (containerH - drawH) * (posY / 100);
+  img.style.width  = drawW + 'px';
+  img.style.height = drawH + 'px';
+  img.style.left   = offsetX + 'px';
+  img.style.top    = offsetY + 'px';
+  img.style.transform = 'none';
+}
+
 function applyBannerTransform() {
   const img = document.getElementById('img-banner');
-  if (!img || img.classList.contains('hidden')) return;
-  const s = bannerState.scale;
-  /* scale > 1이면 이미지를 확대하고 음수 margin으로 넘침 처리 */
-  const pct = s * 100;
-  const offset = (pct - 100) / 2;
-  img.style.width  = pct + '%';
-  img.style.height = pct + '%';
-  img.style.position = 'absolute';
-  img.style.left = `-${offset}%`;
-  img.style.top  = `-${offset}%`;
-  img.style.transform = 'none';
-  img.style.objectPosition = `${bannerState.x}% ${bannerState.y}%`;
+  if (!img || img.classList.contains('hidden') || !img.naturalWidth) return;
+  const wrap = document.getElementById('card-banner-wrap');
+  applyCover(img, wrap.offsetWidth, wrap.offsetHeight, bannerState.x, bannerState.y, bannerState.scale);
 }
 
 function attachBannerDrag() {
@@ -864,15 +867,16 @@ function attachBannerDrag() {
     r.onload = e => {
       const src = e.target.result;
       const imgEl = document.getElementById('img-banner');
-      imgEl.src = src; imgEl.classList.remove('hidden');
+      imgEl.classList.remove('hidden');
       document.getElementById('ph-banner').classList.add('hidden');
       box.classList.add('has-img');
       let th = box.querySelector('.prof-thumb');
       if (!th) { th = document.createElement('img'); th.className='prof-thumb'; th.style.borderRadius='4px'; box.querySelector('.upload-hint-txt').style.display='none'; box.appendChild(th); }
       th.src = src;
-      /* 업로드 후 드래그/줌 바인딩 */
-      attachBannerDrag();
-      applyBannerTransform();
+      /* 이미지 로드 완료 후 cover 적용 */
+      imgEl.onload = () => { attachBannerDrag(); applyBannerTransform(); };
+      imgEl.src = src;
+      if (imgEl.complete && imgEl.naturalWidth) { attachBannerDrag(); applyBannerTransform(); }
     };
     r.readAsDataURL(file);
   }
@@ -887,17 +891,9 @@ const profileState = { x: 50, y: 50, scale: 1.0 };
 
 function applyProfileTransform() {
   const img = document.getElementById('img-profile');
-  if (!img || img.classList.contains('hidden')) return;
-  const s = profileState.scale;
-  const pct = s * 100;
-  const offset = (pct - 100) / 2;
-  img.style.width  = pct + '%';
-  img.style.height = pct + '%';
-  img.style.position = 'absolute';
-  img.style.left = `-${offset}%`;
-  img.style.top  = `-${offset}%`;
-  img.style.transform = 'none';
-  img.style.objectPosition = `${profileState.x}% ${profileState.y}%`;
+  if (!img || img.classList.contains('hidden') || !img.naturalWidth) return;
+  const wrap = document.getElementById('prof-circle-wrap');
+  applyCover(img, wrap.offsetWidth, wrap.offsetHeight, profileState.x, profileState.y, profileState.scale);
 }
 
 function attachProfileDrag() {
@@ -1265,25 +1261,11 @@ function renderImgToCanvas(img, wrapW, wrapH) {
   const ctx = c.getContext('2d');
   ctx.scale(DPR, DPR);
 
-  /* width/height % 방식으로 저장된 scale 읽기 */
-  const wPct = parseFloat(img.style.width) || 100;
-  const userScale = wPct / 100;
-
-  const posParts = (img.style.objectPosition || '50% 50%').split(' ');
-  const px = parseFloat(posParts[0]) / 100;
-  const py = parseFloat(posParts[1] !== undefined ? posParts[1] : posParts[0]) / 100;
-
-  const nw = img.naturalWidth;
-  const nh = img.naturalHeight;
-  if (!nw || !nh) return null;
-
-  /* cover 기준으로 scale 적용 */
-  const base = Math.max(wrapW / nw, wrapH / nh);
-  const ratio = base * userScale;
-  const dw = nw * ratio;
-  const dh = nh * ratio;
-  const ox = (wrapW - dw) * px;
-  const oy = (wrapH - dh) * py;
+  /* applyCover가 이미 px단위로 left/top/width/height를 설정해뒀음 */
+  const dw  = parseFloat(img.style.width)  || wrapW;
+  const dh  = parseFloat(img.style.height) || wrapH;
+  const ox  = parseFloat(img.style.left)   || 0;
+  const oy  = parseFloat(img.style.top)    || 0;
 
   ctx.drawImage(img, ox, oy, dw, dh);
   return c;
@@ -1420,16 +1402,9 @@ function attachImgDrag() {
       return slots.find(s => String(s.id) === String(sid));
     }
     function applyTransform(slot, img) {
-      const s = slot.scale || 1;
-      const pct = s * 100;
-      const offset = (pct - 100) / 2;
-      img.style.width  = pct + '%';
-      img.style.height = pct + '%';
-      img.style.position = 'absolute';
-      img.style.left = `-${offset}%`;
-      img.style.top  = `-${offset}%`;
-      img.style.transform = 'none';
-      img.style.objectPosition = `${slot.imgPos.x}% ${slot.imgPos.y}%`;
+      const wrap = img.closest('.card-img-slot');
+      if (!wrap) return;
+      applyCover(img, wrap.offsetWidth, wrap.offsetHeight, slot.imgPos.x, slot.imgPos.y, slot.scale || 1);
     }
 
     /* ── 마우스 드래그 ── */
