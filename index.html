@@ -1297,15 +1297,33 @@ document.getElementById('btn-download').addEventListener('click', async () => {
 
   const cardEl  = document.getElementById('card-canvas');
   const layerEl = document.getElementById('sticker-layer');
-  const cardW   = cardEl.offsetWidth;
-  const cardH   = cardEl.offsetHeight;
 
-  /* 1) 스티커 정보 저장 후 레이어 통째로 숨김 */
+  /* ── STEP 1: 카드가 DOM 원래 위치에 있을 때 크기 측정 ── */
+  const cardW = cardEl.offsetWidth;
+  const cardH = cardEl.offsetHeight;
+  const cardBg = getComputedStyle(cardEl).backgroundColor || '#eef0f8';
+
+  /* ── STEP 2: 스티커 정보 미리 수집 (레이어 숨기기 전에) ── */
   const wasSelected = activeStickerEl;
   if (activeStickerEl) activeStickerEl.classList.remove('selected');
-  layerEl.style.display = 'none';
+  const stickerData = [];
+  layerEl.querySelectorAll('.sticker').forEach(sticker => {
+    const sImg = sticker.querySelector('.sticker-img');
+    if (!sImg || !sImg.src) return;
+    stickerData.push({
+      src: sImg.src,
+      left:   parseFloat(sticker.style.left)   || 0,
+      top:    parseFloat(sticker.style.top)     || 0,
+      width:  parseFloat(sticker.style.width)   || 80,
+      height: parseFloat(sticker.style.height)  || 80,
+      rot: (() => {
+        const m = (sticker.style.transform || '').match(/rotate\(([^)]+)deg\)/);
+        return m ? parseFloat(m[1]) * Math.PI / 180 : 0;
+      })()
+    });
+  });
 
-  /* 2) img → background-image div 교체 (applyCover px→% 변환) */
+  /* ── STEP 3: 이미지들을 background-image div로 교체 (카드 원위치에서 측정) ── */
   const replacements = [];
   function replaceWithBg(img, container) {
     if (!img || img.classList.contains('hidden') || !img.naturalWidth) return;
@@ -1323,12 +1341,12 @@ document.getElementById('btn-download').addEventListener('click', async () => {
     const div = document.createElement('div');
     div.dataset.bgReplace = '1';
     Object.assign(div.style, {
-      position:'absolute', inset:'0',
-      backgroundImage:`url("${img.src}")`,
-      backgroundRepeat:'no-repeat',
-      backgroundSize:`${bsw} ${bsh}`,
-      backgroundPosition:`${bplP} ${bptP}`,
-      pointerEvents:'none', zIndex:'1',
+      position: 'absolute', inset: '0',
+      backgroundImage: `url("${img.src}")`,
+      backgroundRepeat: 'no-repeat',
+      backgroundSize: `${bsw} ${bsh}`,
+      backgroundPosition: `${bplP} ${bptP}`,
+      pointerEvents: 'none', zIndex: '1',
     });
     img.style.display = 'none';
     container.appendChild(div);
@@ -1338,21 +1356,23 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   replaceWithBg(document.getElementById('img-profile'), document.getElementById('prof-circle-wrap'));
   cardEl.querySelectorAll('.card-img-slot img').forEach(img => replaceWithBg(img, img.closest('.card-img-slot')));
 
-  /* 3) 카드 너비 고정 */
+  /* ── STEP 4: 스티커 레이어 숨기기 ── */
+  layerEl.style.display = 'none';
+
+  /* ── STEP 5: 카드 너비 고정 ── */
   const origW = cardEl.style.width;
   cardEl.style.width = cardW + 'px';
 
-  /* 4) 카드 본체를 화면 밖 임시 위치로 이동 (스크롤 오프셋 제거) */
+  /* ── STEP 6: 카드를 화면 밖으로 이동 후 캡처 ── */
   const anchor = document.createElement('span');
   cardEl.parentNode.insertBefore(anchor, cardEl);
   const tmpWrap = document.createElement('div');
-  tmpWrap.style.cssText = `position:fixed;left:-${cardW + 100}px;top:0;width:${cardW}px;overflow:visible;z-index:-9999`;
+  tmpWrap.style.cssText = `position:fixed;left:-${cardW + 200}px;top:0;width:${cardW}px;height:${cardH}px;overflow:visible;z-index:-9999;`;
   tmpWrap.appendChild(cardEl);
   document.body.appendChild(tmpWrap);
 
   let baseCanvas = null;
   try {
-    const cardBg = getComputedStyle(document.getElementById('card-canvas')).backgroundColor || '#ffffff';
     baseCanvas = await html2canvas(cardEl, {
       scale: 1,
       useCORS: true,
@@ -1360,68 +1380,49 @@ document.getElementById('btn-download').addEventListener('click', async () => {
       backgroundColor: cardBg,
       logging: false,
       imageTimeout: 0,
-      width: cardW,
+      width:  cardW,
       height: cardH,
     });
   } catch(e) {
     alert('저장에 실패했습니다.'); console.error(e);
   } finally {
-    /* 카드 원래 위치로 복원 */
+    /* ── STEP 7: 모든 것 복원 ── */
     anchor.parentNode.insertBefore(cardEl, anchor);
     anchor.remove();
     if (tmpWrap.parentNode) tmpWrap.remove();
-    /* img 복원 */
     replacements.forEach(({ img, div }) => { img.style.display = ''; div.remove(); });
     cardEl.style.width = origW;
-    /* 스티커 레이어 복원 */
     layerEl.style.display = '';
     if (wasSelected) wasSelected.classList.add('selected');
   }
 
   if (!baseCanvas) { btn.textContent = '이미지 저장 ↓'; btn.disabled = false; return; }
 
-  /* 5) 스티커를 Canvas에 직접 그려서 합성 */
-  const out = document.createElement('canvas');
+  /* ── STEP 8: 2배 캔버스에 카드 + 스티커 합성 ── */
   const SCALE = 2;
-  out.width  = cardW  * SCALE;
+  const out = document.createElement('canvas');
+  out.width  = cardW * SCALE;
   out.height = cardH * SCALE;
   const ctx = out.getContext('2d');
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-
-  /* 카드 본체 2배 확대 */
   ctx.drawImage(baseCanvas, 0, 0, out.width, out.height);
 
-  /* 스티커 각각 Canvas에 그리기 */
-  const cardRect = { left: 0, top: 0 };
-  const stickerPromises = [];
-  layerEl.querySelectorAll('.sticker').forEach(sticker => {
-    const sImg = sticker.querySelector('.sticker-img');
-    if (!sImg || !sImg.naturalWidth) return;
-
-    const sl = parseFloat(sticker.style.left)   || 0;
-    const st = parseFloat(sticker.style.top)    || 0;
-    const sw = parseFloat(sticker.style.width)  || 80;
-    const sh = parseFloat(sticker.style.height) || 80;
-    const rotMatch = (sticker.style.transform || '').match(/rotate\(([^)]+)deg\)/);
-    const rot = rotMatch ? parseFloat(rotMatch[1]) * Math.PI / 180 : 0;
-
-    stickerPromises.push(new Promise(resolve => {
-      const tmpImg = new Image();
-      tmpImg.crossOrigin = 'anonymous';
-      tmpImg.onload = () => {
-        ctx.save();
-        /* 스티커 중심으로 이동 후 회전 */
-        ctx.translate((sl + sw / 2) * SCALE, (st + sh / 2) * SCALE);
-        ctx.rotate(rot);
-        ctx.drawImage(tmpImg, -sw / 2 * SCALE, -sh / 2 * SCALE, sw * SCALE, sh * SCALE);
-        ctx.restore();
-        resolve();
-      };
-      tmpImg.onerror = resolve;
-      tmpImg.src = sImg.src;
-    }));
-  });
+  /* 스티커를 Canvas에 직접 그리기 */
+  const stickerPromises = stickerData.map(s => new Promise(resolve => {
+    const tmpImg = new Image();
+    tmpImg.crossOrigin = 'anonymous';
+    tmpImg.onload = () => {
+      ctx.save();
+      ctx.translate((s.left + s.width / 2) * SCALE, (s.top + s.height / 2) * SCALE);
+      ctx.rotate(s.rot);
+      ctx.drawImage(tmpImg, -s.width / 2 * SCALE, -s.height / 2 * SCALE, s.width * SCALE, s.height * SCALE);
+      ctx.restore();
+      resolve();
+    };
+    tmpImg.onerror = resolve;
+    tmpImg.src = s.src;
+  }));
 
   Promise.all(stickerPromises).then(() => {
     const a = document.createElement('a');
