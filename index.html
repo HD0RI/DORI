@@ -1304,46 +1304,58 @@ document.getElementById('btn-download').addEventListener('click', async () => {
      background-image + background-size/position 은 퍼센트 기반이라 scale에 무관하게 정확함. */
   const replacements = [];
 
-  function replaceWithBg(img) {
+  /* applyCover의 px값을 % 기반으로 변환해서 background-image div 생성
+     → html2canvas scale:2에 무관하게 정확하게 렌더링됨 */
+  function replaceWithBg(img, container) {
     if (!img || img.classList.contains('hidden') || !img.naturalWidth) return;
-
-    const container = img.parentElement;
+    container = container || img.parentElement;
     const cw = container.offsetWidth;
     const ch = container.offsetHeight;
     if (!cw || !ch) return;
 
-    /* applyCover가 설정한 px값으로 background-position % 역산 */
+    /* applyCover가 설정한 px → 컨테이너 대비 % 로 변환 */
     const iw = parseFloat(img.style.width)  || cw;
     const ih = parseFloat(img.style.height) || ch;
     const il = parseFloat(img.style.left)   || 0;
     const it = parseFloat(img.style.top)    || 0;
 
-    /* background-position: left/top이 음수면 이미지가 왼쪽/위쪽으로 나감
-       → (il / (cw - iw)) * 100 % 로 역산 */
-    const bpx = iw <= cw ? 0 : (il / (cw - iw)) * 100;
-    const bpy = ih <= ch ? 0 : (it / (ch - ih)) * 100;
+    /* background-size: 컨테이너 % 기준 */
+    const bsw = (iw / cw * 100).toFixed(2) + '%';
+    const bsh = (ih / ch * 100).toFixed(2) + '%';
+    /* background-position: px → % (컨테이너-이미지 초과분 기준) */
+    const bpl = il.toFixed(2) + 'px';
+    const bpt = it.toFixed(2) + 'px';
 
     const div = document.createElement('div');
     div.dataset.bgReplace = '1';
-    div.style.cssText = [
-      'position:absolute',
-      'inset:0',
-      `background-image:url("${img.src}")`,
-      'background-repeat:no-repeat',
-      `background-size:${iw}px ${ih}px`,
-      `background-position:${il}px ${it}px`,
-      'pointer-events:none',
-      'z-index:1',
-    ].join(';');
+    div.style.position         = 'absolute';
+    div.style.inset            = '0';
+    div.style.backgroundImage  = `url("${img.src}")`;
+    div.style.backgroundRepeat = 'no-repeat';
+    div.style.backgroundSize   = `${bsw} ${bsh}`;
+    div.style.backgroundPosition = `${bpl} ${bpt}`;
+    div.style.pointerEvents    = 'none';
+    div.style.zIndex           = '1';
+    div.style.overflow         = 'hidden';
 
     img.style.display = 'none';
     container.appendChild(div);
     replacements.push({ img, div });
   }
 
-  replaceWithBg(document.getElementById('img-banner'));
-  replaceWithBg(document.getElementById('img-profile'));
-  cardEl.querySelectorAll('.card-img-slot img').forEach(replaceWithBg);
+  /* 배너: card-banner-wrap 기준 */
+  const bannerImg = document.getElementById('img-banner');
+  replaceWithBg(bannerImg, document.getElementById('card-banner-wrap'));
+
+  /* 프로필: prof-circle-wrap 기준 */
+  const profImg = document.getElementById('img-profile');
+  replaceWithBg(profImg, document.getElementById('prof-circle-wrap'));
+
+  /* 슬롯 이미지: card-img-slot 기준 */
+  cardEl.querySelectorAll('.card-img-slot img').forEach(img => {
+    const slot = img.closest('.card-img-slot');
+    replaceWithBg(img, slot);
+  });
 
   /* 카드 너비 고정 */
   const origW = cardEl.style.width;
