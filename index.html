@@ -1252,28 +1252,33 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   /* 1) 카드 내 모든 object-fit:cover 이미지 (배너, 슬롯, 프로필) */
   cardEl.querySelectorAll('img').forEach(img => {
     if (img.classList.contains('hidden')) return;
+    /* sticker-img 는 contain 방식이라 변환 불필요 */
+    if (img.classList.contains('sticker-img')) return;
+
     const wrap = img.parentElement;
-    const cs   = getComputedStyle(img);
     const pos  = img.style.objectPosition || '50% 50%';
-    const scaleMatch = img.style.transform && img.style.transform.match(/scale\(([^)]+)\)/);
+    const scaleStr = img.style.transform || '';
+    const scaleMatch = scaleStr.match(/scale\(([^)]+)\)/);
     const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
 
-    /* background-image 방식으로 교체 */
-    const origHTML = wrap.innerHTML;
-    backups.push({ wrap, origHTML });
+    /* background-size: cover 기준으로 scale 배율만 곱함
+       cover = 슬롯을 꽉 채우는 최소 크기 → scale 배율로 확대  */
+    const bgSize = scale === 1 ? 'cover' : `${scale * 100}%`;
 
-    img.style.display = 'none'; /* 원본 img 숨김 */
+    backups.push({ img, origTransform: img.style.transform, origObjectPosition: img.style.objectPosition });
+
+    /* img 자체를 숨기고 wrap에 bg div 삽입 */
+    img.style.visibility = 'hidden';
 
     const div = document.createElement('div');
     div.dataset.exportHelper = '1';
-    div.style.cssText = [
-      'position:absolute;inset:0',
-      `background-image:url('${img.src}')`,
-      'background-repeat:no-repeat',
-      `background-size:${scale * 100}%`,
-      `background-position:${pos}`,
-      'pointer-events:none',
-    ].join(';');
+    div.style.position        = 'absolute';
+    div.style.inset           = '0';
+    div.style.backgroundImage = `url("${img.src}")`;
+    div.style.backgroundRepeat = 'no-repeat';
+    div.style.backgroundSize   = bgSize;
+    div.style.backgroundPosition = pos;
+    div.style.pointerEvents    = 'none';
     wrap.appendChild(div);
   });
 
@@ -1303,11 +1308,12 @@ document.getElementById('btn-download').addEventListener('click', async () => {
     alert('저장에 실패했습니다.'); console.error(e);
   } finally {
     /* ── 복원 ── */
-    backups.forEach(({ wrap, origHTML }) => {
-      /* export helper div 제거, 원본 img 복구 */
-      wrap.querySelectorAll('[data-export-helper]').forEach(d => d.remove());
-      const hiddenImg = wrap.querySelector('img[style*="display: none"]');
-      if (hiddenImg) hiddenImg.style.display = '';
+    backups.forEach(({ img }) => {
+      img.style.visibility = '';
+      /* export helper div 제거 */
+      if (img.parentElement) {
+        img.parentElement.querySelectorAll('[data-export-helper]').forEach(d => d.remove());
+      }
     });
     cardEl.style.width = origWidth;
     if (activeStickerEl) activeStickerEl.classList.add('selected');
