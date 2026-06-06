@@ -133,7 +133,6 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
 }
 /* 배너+헤더를 감싸는 wrapper가 overflow:hidden 담당 */
 .card-top{border-radius:12px 12px 0 0;overflow:hidden;position:relative;}
-.wm{position:absolute;top:8px;right:14px;font-size:10px;color:rgba(0,0,0,.2);z-index:10}
 
 /* ── 트위터 스타일 헤더 ── */
 .card-banner{
@@ -165,7 +164,7 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
 /* 헤더 영역: 배너 바로 아래, 프로필 원이 위로 튀어나옴 */
 .card-header{
   background:var(--card-bg);
-  padding:0 24px 18px;
+  padding:5px 24px 18px;
   position:relative;
   /* 프로필 원이 배너와 겹치도록 넘칠 공간 확보 */
   overflow:visible;
@@ -202,9 +201,9 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
 .prof-circle:hover .prof-drag-hint{opacity:1}
 
 /* 헤더 내부 */
-.header-row{display:flex;align-items:flex-end;gap:16px}
-.header-info{flex:1;min-width:0;padding-bottom:4px}
-.header-meta{display:flex;flex-direction:column;gap:2px;margin-top:6px}
+.header-row{display:flex;align-items:flex-start;gap:16px}
+.header-info{flex:1;min-width:0;padding-top:12px;padding-bottom:4px}
+.header-meta{display:flex;flex-direction:column;gap:2px;margin-top:3px}
 .header-meta-line{font-size:12px;line-height:1.5}
 
 /* ── 닉네임 스타일 3종 ── */
@@ -530,11 +529,10 @@ html,body{font-family:var(--font);background:var(--bg);color:var(--txt);font-siz
   <div class="preview-area mob-hidden" id="preview-area">
     <div class="preview-bar">
       <span class="preview-lbl">미리보기</span>
-      <span class="preview-hint">저장 시 고화질 PNG로 출력됩니다</span>
+      <span class="preview-hint">저장 시 2배 해상도 PNG로 출력됩니다</span>
     </div>
     <div class="preview-scroll">
       <div class="card-canvas" id="card-canvas">
-        <div class="wm">@아이디는 지우지 마세요!</div>
 
         <!-- 배너: overflow hidden을 card-top이 담당 -->
         <div class="card-top">
@@ -1225,6 +1223,7 @@ document.getElementById('btn-download').addEventListener('click', async () => {
       imageTimeout: 0,
       width: cardW,
       height: cardH,
+      letterRendering: true,
       onclone: (doc, clone) => {
         clone.querySelectorAll('.drag-hint,.prof-drag-hint').forEach(e => e.remove());
         clone.querySelectorAll('img').forEach(img => {
@@ -1253,7 +1252,7 @@ document.getElementById('btn-download').addEventListener('click', async () => {
 
     const a = document.createElement('a');
     a.download = '소개카드.png';
-    a.href = result.toDataURL('image/png');
+    a.href = result.toDataURL('image/png', 1.0);
     a.click();
 
   } catch(e) {
