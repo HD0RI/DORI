@@ -1378,6 +1378,16 @@ document.getElementById('btn-download').addEventListener('click', async () => {
     const cardBgColor = getComputedStyle(cardEl)
       .getPropertyValue('--card-bg').trim() || '#ffffff';
 
+    /* 카드를 body에 임시로 옮겨서 스크롤/오프셋 문제 완전 해결 */
+    const placeholder = document.createElement('div');
+    cardEl.parentNode.insertBefore(placeholder, cardEl);
+
+    /* 임시 컨테이너: 화면 밖에 고정 크기로 배치 */
+    const tmpWrap = document.createElement('div');
+    tmpWrap.style.cssText = `position:fixed;left:-9999px;top:0;width:${cardW}px;height:${cardH}px;overflow:visible;z-index:-1`;
+    tmpWrap.appendChild(cardEl);
+    document.body.appendChild(tmpWrap);
+
     const result = await html2canvas(cardEl, {
       scale: 1,
       useCORS: true,
@@ -1387,11 +1397,14 @@ document.getElementById('btn-download').addEventListener('click', async () => {
       imageTimeout: 0,
       width:  cardW,
       height: cardH,
-      scrollX: 0,
-      scrollY: 0,
-      x: 0,
-      y: 0,
+      windowWidth:  cardW,
+      windowHeight: cardH,
     });
+
+    /* 카드를 원래 위치로 복원 */
+    placeholder.parentNode.insertBefore(cardEl, placeholder);
+    placeholder.remove();
+    if (tmpWrap.parentNode) tmpWrap.remove();
 
     /* 2배 확대 Canvas 생성 */
     const out = document.createElement('canvas');
@@ -1409,6 +1422,16 @@ document.getElementById('btn-download').addEventListener('click', async () => {
   } catch(e) {
     alert('저장에 실패했습니다. 다시 시도해주세요.'); console.error(e);
   } finally {
+    /* placeholder/tmpWrap 혹시 남아있으면 정리 */
+    const leftover = document.querySelector('div[style*="-9999px"]');
+    if (leftover) {
+      const inner = leftover.querySelector('#card-canvas');
+      if (inner) {
+        const ps = document.querySelector('#preview-scroll, .preview-scroll');
+        if (ps) ps.appendChild(inner);
+      }
+      leftover.remove();
+    }
     /* 스티커 UI 복원 */
     stickerUIEls.forEach(el => { el.style.display = ''; delete el.dataset.hiddenForExport; });
     replacements.forEach(({ img, div }) => {
